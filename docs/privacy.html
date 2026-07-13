@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta
+      name="description"
+      content="Privacy Policy for the All Chats Sidebar for Grok Chromium extension."
+    >
+    <meta name="theme-color" content="#080a0c">
+    <title>Privacy Policy | All Chats Sidebar for Grok</title>
+    <link rel="canonical" href="https://communism420.github.io/All-Chats-Sidebar-for-Grok/privacy.html">
+    <link rel="icon" href="assets/logo.png" type="image/png">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="index.html" aria-label="All Chats Sidebar for Grok home">
+          <img src="assets/logo.png" width="36" height="36" alt="">
+          <span>All Chats Sidebar for Grok</span>
+        </a>
+        <nav class="site-nav" aria-label="Primary navigation">
+          <a href="index.html">Home</a>
+          <a href="privacy.html" aria-current="page">Privacy</a>
+          <a href="https://github.com/communism420/All-Chats-Sidebar-for-Grok">Source</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main-content" class="policy-main">
+      <article class="policy">
+        <header class="policy-header">
+          <p class="eyebrow">All Chats Sidebar for Grok</p>
+          <h1>Privacy Policy</h1>
+          <p class="effective-date">Effective date: July 14, 2026</p>
+        </header>
+
+        <div class="policy-summary">
+          <strong>Summary</strong>
+          <p>
+            The extension has no developer-operated server, advertising, analytics, telemetry, or tracking. It does not sell
+            or share user data.
+          </p>
+        </div>
+
+        <section aria-labelledby="scope-heading">
+          <h2 id="scope-heading">Scope</h2>
+          <p>
+            All Chats Sidebar for Grok is an unofficial browser extension that displays and manages a user's Grok chat list
+            in the Grok sidebar. It is not affiliated with, endorsed by, or sponsored by xAI.
+          </p>
+        </section>
+
+        <section aria-labelledby="open-source-heading">
+          <h2 id="open-source-heading">Open source</h2>
+          <p>The complete extension source and build scripts are public under the MIT License:</p>
+          <p>
+            <a href="https://github.com/communism420/All-Chats-Sidebar-for-Grok">
+              github.com/communism420/All-Chats-Sidebar-for-Grok
+            </a>
+          </p>
+          <p>
+            The published source contains all executable extension code. There are no closed-source runtime components or
+            private production dependencies.
+          </p>
+        </section>
+
+        <section aria-labelledby="data-heading">
+          <h2 id="data-heading">Data the extension handles</h2>
+          <p>
+            While the user is signed in to <code>https://grok.com</code>, the extension handles the minimum data needed to
+            provide its single purpose:
+          </p>
+          <ul>
+            <li>Grok conversation identifiers, titles, creation and modification timestamps, and pinned status.</li>
+            <li>
+              The current Grok page route and existing sidebar links, so the extension can identify the selected chat and
+              integrate its list into the page.
+            </li>
+            <li>
+              Rename, pin, unpin, delete, and navigation actions that the user explicitly initiates through the extension
+              interface.
+            </li>
+          </ul>
+          <p>
+            This information can include website content, user-generated content, or personal communication metadata. The
+            extension does not extract, inspect, store, or transmit chat message bodies. Grok itself may load or prefetch a
+            conversation as part of normal navigation when the user selects or points to a chat.
+          </p>
+          <p>
+            The extension does not directly read passwords, authentication tokens, payment information, health information,
+            or precise location. Requests to Grok use the signed-in browser session in the same way as the Grok page; the
+            extension does not request access to browser cookies.
+          </p>
+        </section>
+
+        <section aria-labelledby="use-heading">
+          <h2 id="use-heading">How data is used and transmitted</h2>
+          <p>
+            Conversation data is used only to render the complete chat list, open chats, and perform the chat-management
+            action selected by the user.
+          </p>
+          <p>
+            Network requests are sent directly over HTTPS between the user's browser and <code>grok.com</code>. Conversation
+            data is not sent to the extension developer or to unrelated third parties. Data is sent back to Grok only when
+            needed to load the list, navigate, prefetch a selected chat, or perform a chat-management action initiated by the
+            user.
+          </p>
+          <p>
+            The extension does not use user data for advertising, creditworthiness, lending, profiling, or any purpose
+            unrelated to its disclosed single purpose. The developer and anyone acting on the developer's behalf cannot
+            access the user's conversation data through the extension.
+          </p>
+        </section>
+
+        <section aria-labelledby="storage-heading">
+          <h2 id="storage-heading">Storage and retention</h2>
+          <ul>
+            <li>
+              Conversation metadata is kept only in the memory of the active Grok page and is discarded when the page is
+              closed or reloaded.
+            </li>
+            <li>
+              The selected interface language is stored with <code>chrome.storage.sync</code>. Depending on the user's Chrome
+              settings, Google Chrome may synchronize that preference through the user's browser profile.
+            </li>
+            <li>The selected sidebar width is stored locally with <code>chrome.storage.local</code>.</li>
+            <li>Settings remain until the user clears extension data or uninstalls the extension.</li>
+          </ul>
+        </section>
+
+        <section aria-labelledby="security-heading">
+          <h2 id="security-heading">Security</h2>
+          <p>
+            All executable extension code is included in the extension package. The extension does not download or execute
+            remote code. Its content script site access is limited to <code>https://grok.com/*</code>.
+          </p>
+        </section>
+
+        <section aria-labelledby="limited-use-heading">
+          <h2 id="limited-use-heading">Chrome Web Store Limited Use</h2>
+          <p>
+            The extension's use of information received from Chrome APIs complies with the Chrome Web Store User Data Policy,
+            including the Limited Use requirements.
+          </p>
+        </section>
+
+        <section aria-labelledby="changes-heading">
+          <h2 id="changes-heading">Changes to this policy</h2>
+          <p>
+            If this policy changes, the updated policy will be published at this same public URL with a revised effective
+            date. Material changes to data handling will also be disclosed in the extension and its Chrome Web Store listing
+            as required.
+          </p>
+        </section>
+
+        <section aria-labelledby="contact-heading">
+          <h2 id="contact-heading">Contact</h2>
+          <p>
+            Questions about this policy can be submitted through the repository's public issue tracker or the developer
+            support contact shown on the extension's Chrome Web Store listing.
+          </p>
+          <p>
+            <a href="https://github.com/communism420/All-Chats-Sidebar-for-Grok/issues">
+              Open the public issue tracker
+            </a>
+          </p>
+        </section>
+
+        <a class="back-link" href="index.html"><span aria-hidden="true">&larr;</span> Back to the extension page</a>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <p>Unofficial project. Not affiliated with, endorsed by, or sponsored by xAI.</p>
+        <p><a href="index.html">Home</a> &middot; <a href="https://github.com/communism420/All-Chats-Sidebar-for-Grok">GitHub</a></p>
+      </div>
+    </footer>
+  </body>
+</html>

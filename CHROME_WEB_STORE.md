@@ -55,7 +55,7 @@ State that the data is used only for app functionality, is processed locally, is
 
 Use this stable, public privacy-policy URL in the dashboard:
 
-https://github.com/communism420/All-Chats-Sidebar-for-Grok/blob/main/PRIVACY.md
+https://communism420.github.io/All-Chats-Sidebar-for-Grok/privacy.html
 
 Complete the Limited Use certification only after confirming that the dashboard answers match this repository and the hosted policy.
 

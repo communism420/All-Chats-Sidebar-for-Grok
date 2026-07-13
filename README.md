@@ -4,6 +4,8 @@ Fully open-source Chromium extension that shows the complete Grok chat history d
 
 Source code: https://github.com/communism420/All-Chats-Sidebar-for-Grok
 
+Website: https://communism420.github.io/All-Chats-Sidebar-for-Grok/
+
 Current version: `1.0.0`. Do not change it without the project owner's explicit permission.
 
 ## Installation
@@ -38,7 +40,7 @@ The extension may require an update if xAI changes the conversation endpoint or 
 
 The extension processes chat titles and metadata only inside the browser and communicates directly with `grok.com`. It contains no analytics, advertising, telemetry, or developer-operated servers. The interface language is stored in `chrome.storage.sync`, while the selected sidebar width is stored in `chrome.storage.local`.
 
-See the complete [Privacy Policy](PRIVACY.md).
+See the complete [Privacy Policy](https://communism420.github.io/All-Chats-Sidebar-for-Grok/privacy.html). The source text is also available in [PRIVACY.md](PRIVACY.md).
 
 ## Open Source
 
