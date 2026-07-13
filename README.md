@@ -1,63 +1,63 @@
 # All Chats Sidebar for Grok
 
-Fully open-source Chromium extension that shows the full Grok chat history directly in the left sidebar. The project is not affiliated with, endorsed by, or sponsored by xAI.
+Fully open-source Chromium extension that shows the complete Grok chat history directly in the left sidebar. The project is not affiliated with, endorsed by, or sponsored by xAI.
 
-Исходный код: https://github.com/communism420/All-Chats-Sidebar-for-Grok
+Source code: https://github.com/communism420/All-Chats-Sidebar-for-Grok
 
-Текущая версия: `1.0.0`. Не изменяйте её без явного разрешения владельца проекта.
+Current version: `1.0.0`. Do not change it without the project owner's explicit permission.
 
-## Установка
+## Installation
 
-1. Откройте `chrome://extensions` в Chromium-браузере.
-2. Включите `Developer mode` / `Режим разработчика`.
-3. Нажмите `Load unpacked` / `Загрузить распакованное расширение`.
-4. Выберите папку с распакованным исходным кодом расширения.
-5. Откройте или перезагрузите `https://grok.com`.
+1. Open `chrome://extensions` in a Chromium-based browser.
+2. Enable **Developer mode**.
+3. Select **Load unpacked**.
+4. Choose the directory containing the unpacked extension source code.
+5. Open or reload `https://grok.com`.
 
-## Язык
+## Language
 
-Нажмите значок расширения на панели Chromium и выберите язык в выпадающем списке. Настройка применяется к открытым вкладкам Grok сразу и синхронизируется через профиль браузера. По умолчанию используется язык браузера, а затем язык сайта.
+Select the extension icon in the Chromium toolbar and choose a language from the list. The setting is applied to open Grok tabs immediately and is synchronized through the browser profile. By default, the extension uses the browser language and then the website language.
 
-Поддерживаются английский, испанский, немецкий, португальский (Бразилия), русский, украинский и французский языки.
+The extension supports English, Spanish, German, Brazilian Portuguese, Russian, Ukrainian, and French.
 
-## Как это работает
+## How It Works
 
-- Скрипт запускается только на `grok.com`.
-- Он не нажимает `Show all` / `Показать всё` и не открывает отдельное меню Grok.
-- Он запрашивает историю через `GET /rest/app-chat/conversations` с cookies текущей сессии браузера.
-- Ответы постранично добавляются в один непрерывный список внутри штатной прокручиваемой области боковой панели.
-- Закреплённые чаты показываются отдельной группой над общей историей, но обе группы остаются частью одного списка и одного скролла.
-- Ширину списка можно менять перетаскиванием его правой границы по всей высоте сайдбара. Выбранная ширина сохраняется для этого браузера; двойной щелчок по границе или клавиша `Home` при фокусе на ней возвращает штатную ширину Grok.
-- Переход повторяет штатную последовательность Grok: сразу выбирает чат, открывает канонический маршрут `/c/...` и заранее загружает данные при наведении, фокусе или нажатии. Если внутренний роутер сайта недоступен, расширение автоматически использует резервный переход.
-- У каждого чата есть кнопка `...` с меню: открыть в новой вкладке, переименовать, закрепить/открепить, удалить.
-- Когда список успешно появился, нативный короткий список истории и кнопка `Показать всё` скрываются.
+- The content script runs only on `grok.com`.
+- It does not activate **Show all** or open Grok's separate chat-history menu.
+- It requests the chat history from `GET /rest/app-chat/conversations` using the browser's existing signed-in session.
+- Paginated responses are added to one continuous list inside the native scrollable sidebar area.
+- Pinned chats appear in a separate group above the remaining history, while both groups stay in the same list and share one scrollbar.
+- The sidebar width can be changed by dragging its right edge along the full sidebar height. The selected width is saved for the current browser. Double-click the edge, or press `Home` while it is focused, to restore Grok's default width.
+- Navigation selects the chat immediately, opens its canonical `/c/...` route, and preloads data on pointer hover, focus, or press. If Grok's internal router is unavailable, the extension uses a fallback navigation method.
+- Each chat has a three-dot menu for opening it in a new tab, renaming it, pinning or unpinning it, and deleting it.
+- After the complete list is rendered successfully, the shortened native history and the **Show all** control are hidden.
 
-Если xAI изменит REST endpoint или формат ответа, расширение может потребовать обновления.
+The extension may require an update if xAI changes the conversation endpoint or response format.
 
-## Конфиденциальность
+## Privacy
 
-Расширение обрабатывает названия и метаданные чатов только внутри браузера и обращается напрямую к `grok.com`. Оно не содержит аналитики, рекламы, телеметрии или серверов разработчика. Язык интерфейса хранится в `chrome.storage.sync`, а выбранная ширина панели — в `chrome.storage.local`.
+The extension processes chat titles and metadata only inside the browser and communicates directly with `grok.com`. It contains no analytics, advertising, telemetry, or developer-operated servers. The interface language is stored in `chrome.storage.sync`, while the selected sidebar width is stored in `chrome.storage.local`.
 
-Полная политика: [PRIVACY.md](PRIVACY.md).
+See the complete [Privacy Policy](PRIVACY.md).
 
-## Open source
+## Open Source
 
-Весь код расширения, локализации, изображения и скрипты сборки опубликованы в открытом виде. Закрытых модулей, удалённого исполняемого кода и приватного сервера разработчика нет.
+All extension code, localizations, artwork, and build scripts are publicly available. The project contains no closed-source modules, remotely hosted executable code, or private developer backend.
 
-Проект распространяется по лицензии [MIT](LICENSE). Подробная политика открытого исходного кода: [OPEN_SOURCE.md](OPEN_SOURCE.md).
+The project is distributed under the [MIT License](LICENSE). See the complete [Open-Source Policy](OPEN_SOURCE.md).
 
-## Сборка для Chrome Web Store
+## Chrome Web Store Build
 
-Иконки `16/32/48/128` создаются из мастер-файла `logo.png` командой:
+Generate the `16/32/48/128` icon files from the `logo.png` master artwork:
 
 ```powershell
 .\scripts\generate-icons.ps1
 ```
 
-После этого соберите архив:
+Then build the store package:
 
 ```powershell
 .\scripts\package.ps1
 ```
 
-Готовый архив создаётся по пути `dist/grok-show-all-chats-1.0.0.zip`. Инструкции по заполнению карточки, Privacy practices и reviewer notes находятся в [CHROME_WEB_STORE.md](CHROME_WEB_STORE.md).
+The archive is created at `dist/grok-show-all-chats-1.0.0.zip`. See [CHROME_WEB_STORE.md](CHROME_WEB_STORE.md) for listing, privacy-practices, and reviewer-instructions guidance.
