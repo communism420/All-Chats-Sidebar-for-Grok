@@ -140,13 +140,21 @@ assert.doesNotMatch(
   "Chat navigation must not contain a hard-navigation fallback"
 );
 
-vm.runInThisContext(pageBridgeSource, { filename: "page-bridge.js" });
+const pageBridgeMarker = "  document.addEventListener(REQUEST_EVENT, handleRequest, false);";
+assert.ok(pageBridgeSource.includes(pageBridgeMarker), "Page bridge test hook marker is missing");
+const instrumentedPageBridgeSource = pageBridgeSource.replace(
+  pageBridgeMarker,
+  `  globalThis.__pageBridgeTestApi = { navigateToConversation, state };
+${pageBridgeMarker}`
+);
+vm.runInThisContext(instrumentedPageBridgeSource, { filename: "page-bridge.js" });
 
 const observerMarker = "  const observer = new MutationObserver(scheduleRun);";
 assert.ok(contentSource.includes(observerMarker), "Content test hook marker is missing");
 const instrumentedContentSource = contentSource.replace(
   observerMarker,
   `  globalThis.__navigationTestApi = {
+    attemptConversationNavigation,
     beginNavigationScrollPreservation,
     getPageBridgeNavigationStatus,
     handleListScroll,
@@ -160,6 +168,7 @@ const instrumentedContentSource = contentSource.replace(
 vm.runInThisContext(instrumentedContentSource, { filename: "content.js" });
 
 const testApi = globalThis.__navigationTestApi;
+const pageBridgeApi = globalThis.__pageBridgeTestApi;
 const navigationStarted = testApi.tryPageBridgeNavigation(
   new URL("/c/chat-42", location.origin),
   "chat-42"
@@ -177,6 +186,55 @@ fakeLocation.href = "https://grok.com/c/chat-42";
 const status = testApi.getPageBridgeNavigationStatus();
 assert.equal(status.activeConversationId, "chat-42");
 assert.deepEqual(status.activeConversationIds, ["chat-42"]);
+
+const chatPageUpdates = [];
+pageBridgeApi.state.chatPageStore = {
+  getState: () => ({
+    conversationId: "chat-42",
+    setConversationId: (conversationId) => chatPageUpdates.push(conversationId)
+  })
+};
+const directNavigation = pageBridgeApi.navigateToConversation(
+  new URL("/c/chat-with-next-router", location.origin),
+  "chat-with-next-router"
+);
+assert.deepEqual(directNavigation, { method: "next-app", started: true });
+assert.deepEqual(
+  chatPageUpdates,
+  [],
+  "Next router navigation must not also mutate Grok's chat-page store"
+);
+
+fakeLocation.pathname = "/c/old";
+fakeLocation.href = "https://grok.com/c/old";
+const pushCountBeforeConfirmation = routerCalls.filter((call) => call[0] === "push").length;
+const navigationSequence = ++testApi.state.navigationSequence;
+testApi.state.navigationPendingTarget = "chat-99";
+const originalRequestAnimationFrame = window.requestAnimationFrame;
+window.requestAnimationFrame = () => 1;
+testApi.attemptConversationNavigation({
+  attemptsRemaining: 4,
+  conversationId: "chat-99",
+  link: sidebar,
+  prefetchRequest: null,
+  route: { conversationId: "chat-99", page: "chat", temporary: false },
+  sequence: navigationSequence,
+  url: new URL("/c/chat-99", location.origin)
+});
+
+const confirmationTimer = testApi.state.navigationRetryTimer;
+const confirmationCallback = timers.get(confirmationTimer);
+assert.equal(typeof confirmationCallback, "function");
+timers.delete(confirmationTimer);
+confirmationCallback();
+window.requestAnimationFrame = originalRequestAnimationFrame;
+assert.equal(
+  routerCalls.filter((call) => call[0] === "push").length,
+  pushCountBeforeConfirmation + 1,
+  "A started navigation must never be issued again by its confirmation timer"
+);
+assert.equal(testApi.state.navigationRetryTimer, 0);
+assert.equal(testApi.state.navigationPendingTarget, "");
 
 const scrollHost = new FakeHtmlElement();
 scrollHost.matches = (selector) => selector === "[data-sidebar='content']";

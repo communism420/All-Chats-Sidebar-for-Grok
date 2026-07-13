@@ -464,6 +464,7 @@
     } catch {
       return false;
     }
+    setChatPageConversationId(conversationId);
 
     if (route.page === "chat" && prefetchRequest && typeof prefetchRequest.then === "function") {
       void prefetchRequest.then((conversation) => {
@@ -490,7 +491,6 @@
 
   function navigateToConversation(url, conversationId) {
     state.nextAppRouter = null;
-    setChatPageConversationId(conversationId);
     const prefetchRequest = prefetchConversation(conversationId);
     prefetchRoute(url, conversationId);
 
@@ -508,7 +508,6 @@
 
   function navigateHome(url) {
     state.nextAppRouter = null;
-    setChatPageConversationId(null);
     if (tryNextAppNavigation(url)) {
       return { method: "next-app", started: true };
     }
@@ -521,6 +520,7 @@
     if (typeof snapshot?.push === "function") {
       try {
         snapshot.push({ page: "main" });
+        setChatPageConversationId(null);
         return { method: "grok-store", started: true };
       } catch {
         // Fall through to a failed bridge response.

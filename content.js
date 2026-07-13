@@ -134,6 +134,7 @@
     menuButton: null,
     menuConversationId: "",
     nativeHistory: null,
+    navigationPendingTarget: "",
     navigationRetryTimer: 0,
     navigationScrollReleaseTimer: 0,
     navigationScrollSettling: false,
@@ -1457,9 +1458,13 @@
     }
 
     const preservedScrollTop = state.navigationScrollTop;
+    const preservedTarget = state.navigationScrollTarget;
     state.navigationScrollSettling = false;
     state.navigationScrollTarget = "";
     state.navigationScrollTop = 0;
+    if (state.navigationPendingTarget === preservedTarget) {
+      state.navigationPendingTarget = "";
+    }
     restoreListScrollTop(panel, preservedScrollTop);
   }
 
@@ -1938,7 +1943,7 @@
 
     const target = pathSearchHash(url);
     try {
-      const result = router.push(target, target, { shallow: false });
+      const result = router.push(target, target, { scroll: false, shallow: false });
       if (result && typeof result.catch === "function") {
         void result.catch(() => undefined);
       }
@@ -1998,7 +2003,7 @@
     }
   }
 
-  function tryGrokRoutingStoreNavigation(route) {
+  function tryGrokRoutingStoreNavigation(route, prefetchRequest = null, sequence = state.navigationSequence) {
     maybeCaptureGrokStores();
     const snapshot = getStoreState(state.routingStore);
     if (!snapshot || typeof snapshot.push !== "function") {
@@ -2007,6 +2012,10 @@
 
     try {
       snapshot.push(route);
+      setChatPageConversationId(getConversationIdFromRoute(route) || null);
+      if (route.page === "chat") {
+        resolveConversationWorkspace(String(route.conversationId || ""), prefetchRequest, sequence);
+      }
       return true;
     } catch {
       return false;
@@ -2093,10 +2102,6 @@
     };
   }
 
-  function isChatShellPath(pathname = location.pathname) {
-    return pathname === "/" || /^\/(?:chat|chat-v1|chat-v2|c|conversation|grok\/chat)(?:\/|$)/i.test(pathname);
-  }
-
   function refreshAfterNavigation() {
     scheduleImmediateRun();
   }
@@ -2155,20 +2160,18 @@
     return getConversationIdFromRoute(route) === conversationId;
   }
 
-  function tryConversationNavigation(url, link, conversationId, route, wasChatShell) {
+  function tryConversationNavigation(url, link, conversationId, route, prefetchRequest, sequence) {
     if (tryPageBridgeNavigation(url, conversationId)) {
       return true;
     }
 
-    let navigationStarted = tryGrokRoutingStoreNavigation(route);
-    if (navigationStarted && route.page === "chat" && !wasChatShell) {
-      tryNextAppRouterNavigation(url, link) || tryNextPagesRouterNavigation(url);
-    } else if (!navigationStarted) {
-      navigationStarted =
-        tryNextAppRouterNavigation(url, link) ||
-        tryNextPagesRouterNavigation(url);
+    if (tryNextAppRouterNavigation(url, link)) {
+      return true;
     }
-    return navigationStarted;
+    if (tryNextPagesRouterNavigation(url)) {
+      return true;
+    }
+    return tryGrokRoutingStoreNavigation(route, prefetchRequest, sequence);
   }
 
   function attemptConversationNavigation({
@@ -2179,7 +2182,6 @@
     route,
     sequence,
     url,
-    wasChatShell
   }) {
     if (sequence !== state.navigationSequence) {
       return;
@@ -2187,6 +2189,9 @@
 
     if (isConversationRouteActive(conversationId)) {
       clearNavigationRetry();
+      if (state.navigationPendingTarget === conversationId) {
+        state.navigationPendingTarget = "";
+      }
       refreshAfterNavigation();
       settleNavigationScrollPreservation(conversationId);
       return;
@@ -2197,41 +2202,33 @@
       link,
       conversationId,
       route,
-      wasChatShell
+      prefetchRequest,
+      sequence
     );
     if (navigationStarted) {
       clearNavigationRetry();
       refreshAfterNavigation();
-      resolveConversationWorkspace(conversationId, prefetchRequest, sequence);
-
-      if (attemptsRemaining > 0) {
-        state.navigationRetryTimer = window.setTimeout(() => {
-          state.navigationRetryTimer = 0;
-          if (sequence !== state.navigationSequence) {
-            return;
-          }
-          if (isConversationRouteActive(conversationId)) {
-            refreshAfterNavigation();
-            settleNavigationScrollPreservation(conversationId);
-            return;
-          }
-          attemptConversationNavigation({
-            attemptsRemaining: attemptsRemaining - 1,
-            conversationId,
-            link,
-            prefetchRequest,
-            route,
-            sequence,
-            url,
-            wasChatShell
-          });
-        }, NAVIGATION_CONFIRM_DELAY_MS);
-      }
+      state.navigationRetryTimer = window.setTimeout(() => {
+        state.navigationRetryTimer = 0;
+        if (sequence !== state.navigationSequence) {
+          return;
+        }
+        if (state.navigationPendingTarget === conversationId) {
+          state.navigationPendingTarget = "";
+        }
+        refreshAfterNavigation();
+        if (isConversationRouteActive(conversationId)) {
+          settleNavigationScrollPreservation(conversationId);
+        }
+      }, NAVIGATION_CONFIRM_DELAY_MS);
       return;
     }
 
     if (attemptsRemaining <= 0) {
       clearNavigationRetry();
+      if (state.navigationPendingTarget === conversationId) {
+        state.navigationPendingTarget = "";
+      }
       releaseNavigationScrollPreservation();
       state.lastRenderSignature = "";
       scheduleRun();
@@ -2248,8 +2245,7 @@
         prefetchRequest,
         route,
         sequence,
-        url,
-        wasChatShell
+        url
       });
     }, NAVIGATION_RETRY_DELAY_MS);
   }
@@ -2260,8 +2256,17 @@
       return;
     }
 
-    if (getCurrentConversationId() === conversationId && isConversationRouteActive(conversationId)) {
-      setChatPageConversationId(conversationId);
+    if (state.navigationPendingTarget === conversationId) {
+      markNavigatingLink(link);
+      restorePreservedNavigationScroll();
+      return;
+    }
+
+    if (
+      !state.navigationPendingTarget &&
+      getCurrentConversationId() === conversationId &&
+      isConversationRouteActive(conversationId)
+    ) {
       clearNavigationRetry();
       if (state.navigationScrollTarget) {
         releaseNavigationScrollPreservation();
@@ -2272,11 +2277,10 @@
 
     beginNavigationScrollPreservation(conversationId);
     markNavigatingLink(link);
+    state.navigationPendingTarget = conversationId;
     state.navigationSequence += 1;
     clearNavigationRetry();
     const sequence = state.navigationSequence;
-    const wasChatShell = isChatShellPath();
-    setChatPageConversationId(conversationId);
     const prefetchRequest = prefetchConversation(conversationId);
     const route = getConversationRoute(conversationId);
     attemptConversationNavigation({
@@ -2286,8 +2290,7 @@
       prefetchRequest,
       route,
       sequence,
-      url,
-      wasChatShell
+      url
     });
   }
 
@@ -2305,9 +2308,9 @@
 
     const navigationStarted =
       tryPageBridgeHomeNavigation(url) ||
-      tryGrokRoutingStoreNavigation({ page: "main" }) ||
       tryNextAppRouterNavigation(url, state.panel || document.body) ||
-      tryNextPagesRouterNavigation(url);
+      tryNextPagesRouterNavigation(url) ||
+      tryGrokRoutingStoreNavigation({ page: "main" });
 
     if (navigationStarted) {
       clearNavigationRetry();
@@ -2337,8 +2340,11 @@
     }
 
     state.navigationSequence += 1;
+    state.navigationPendingTarget = "";
     clearNavigationRetry();
-    setChatPageConversationId(null);
+    if (state.navigationScrollTarget) {
+      releaseNavigationScrollPreservation();
+    }
     attemptHomeNavigation(url, state.navigationSequence, NAVIGATION_RETRY_LIMIT);
   }
 
