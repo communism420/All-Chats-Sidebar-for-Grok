@@ -28,7 +28,7 @@ The extension supports English, Spanish, German, Brazilian Portuguese, Russian, 
 - Paginated responses are added to one continuous list inside the native scrollable sidebar area.
 - Pinned chats appear in a separate group above the remaining history, while both groups stay in the same list and share one scrollbar.
 - The sidebar width can be changed by dragging its right edge along the full sidebar height. The selected width is saved for the current browser. Double-click the edge, or press `Home` while it is focused, to restore Grok's default width.
-- Navigation selects the chat immediately, opens its canonical `/c/...` route, and preloads data on pointer hover, focus, or press. If Grok's internal router is unavailable, the extension uses a fallback navigation method.
+- Navigation uses Grok's in-page SPA router, keeps the chat-list scroll position fixed, opens the canonical `/c/...` route, and preloads data on pointer hover, focus, or press. Chat selection never falls back to a full-page reload.
 - Each chat has a three-dot menu for opening it in a new tab, renaming it, pinning or unpinning it, and deleting it.
 - After the complete list is rendered successfully, the shortened native history and the **Show all** control are hidden.
 
@@ -47,6 +47,12 @@ All extension code, localizations, artwork, and build scripts are publicly avail
 The project is distributed under the [MIT License](LICENSE). See the complete [Open-Source Policy](OPEN_SOURCE.md).
 
 ## Chrome Web Store Build
+
+Run the syntax and navigation regression tests:
+
+```powershell
+.\scripts\test.ps1
+```
 
 Generate the `16/32/48/128` icon files from the `logo.png` master artwork:
 

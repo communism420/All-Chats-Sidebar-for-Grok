@@ -34,7 +34,28 @@ if ([string]$manifest.homepage_url -ne $expectedHomepage) {
 }
 
 Assert-ExactValues -Actual @($manifest.permissions) -Expected @("storage") -Label "permissions"
-Assert-ExactValues -Actual @($manifest.content_scripts[0].matches) -Expected @("https://grok.com/*") -Label "content script matches"
+if (@($manifest.content_scripts).Count -ne 2) {
+  throw "manifest.json must contain exactly two content script declarations."
+}
+
+$pageBridgeScript = $manifest.content_scripts[0]
+$extensionScript = $manifest.content_scripts[1]
+Assert-ExactValues -Actual @($pageBridgeScript.matches) -Expected @("https://grok.com/*") -Label "page bridge matches"
+Assert-ExactValues -Actual @($pageBridgeScript.js) -Expected @("page-bridge.js") -Label "page bridge scripts"
+Assert-ExactValues -Actual @($extensionScript.matches) -Expected @("https://grok.com/*") -Label "extension content script matches"
+Assert-ExactValues -Actual @($extensionScript.js) -Expected @("i18n.js", "settings-bridge.js", "content.js") -Label "extension content scripts"
+Assert-ExactValues -Actual @($extensionScript.css) -Expected @("content.css") -Label "extension content styles"
+
+if ((@($extensionScript.js) -join "`n") -ne (@("i18n.js", "settings-bridge.js", "content.js") -join "`n")) {
+  throw "The isolated extension content scripts are in the wrong load order."
+}
+
+if ([string]$pageBridgeScript.run_at -ne "document_start" -or [string]$pageBridgeScript.world -ne "MAIN") {
+  throw "page-bridge.js must run in the MAIN world at document_start."
+}
+if ([string]$extensionScript.run_at -ne "document_idle") {
+  throw "The isolated extension content scripts must run at document_idle."
+}
 
 if ($manifest.PSObject.Properties.Name -contains "host_permissions") {
   throw "host_permissions must remain absent; the content script uses only same-origin requests."
@@ -48,6 +69,7 @@ if ([string]$manifest.content_security_policy.extension_pages -ne $expectedCsp) 
 $runtimeFiles = @(
   "LICENSE",
   "manifest.json",
+  "page-bridge.js",
   "icons\icon16.png",
   "icons\icon32.png",
   "icons\icon48.png",

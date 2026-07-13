@@ -33,6 +33,16 @@
         "https://grok.com/*"
       ],
       "js": [
+        "page-bridge.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://grok.com/*"
+      ],
+      "js": [
         "i18n.js",
         "settings-bridge.js",
         "content.js"
