@@ -1,0 +1,11 @@
+{
+  "extensionName": {
+    "message": "Barre latérale des chats pour Grok"
+  },
+  "extensionDescription": {
+    "message": "Extension non officielle et open source qui affiche l’historique complet des chats Grok dans la barre latérale."
+  },
+  "openSettings": {
+    "message": "Ouvrir les paramètres de l’extension"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "extensionName": {
+    "message": "All Chats Sidebar for Grok"
+  },
+  "extensionDescription": {
+    "message": "Open-source, unofficial extension that shows the complete Grok chat history directly in the sidebar."
+  },
+  "openSettings": {
+    "message": "Open extension settings"
+  }
+}

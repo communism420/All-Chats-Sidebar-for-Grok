@@ -1,0 +1,11 @@
+{
+  "extensionName": {
+    "message": "Chat-Seitenleiste für Grok"
+  },
+  "extensionDescription": {
+    "message": "Inoffizielle Open-Source-Erweiterung, die den vollständigen Grok-Chatverlauf direkt in der Seitenleiste anzeigt."
+  },
+  "openSettings": {
+    "message": "Erweiterungseinstellungen öffnen"
+  }
+}

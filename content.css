@@ -1,0 +1,376 @@
+[data-grok-show-all-chats-hidden="true"],
+[data-grok-show-all-chats-native-hidden="true"] {
+  display: none !important;
+}
+
+[data-grok-show-all-chats-width-host="true"] {
+  flex-basis: var(--grok-show-all-chats-sidebar-width) !important;
+  max-width: var(--grok-show-all-chats-sidebar-width) !important;
+  min-width: var(--grok-show-all-chats-sidebar-width) !important;
+  width: var(--grok-show-all-chats-sidebar-width) !important;
+}
+
+[data-grok-show-all-chats-panel="true"] {
+  box-sizing: border-box;
+  color: inherit;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  max-width: 100%;
+  min-width: 0;
+  overflow: visible;
+  padding: 2px 6px 8px;
+  position: relative;
+  width: 100%;
+}
+
+[data-grok-show-all-chats-heading="true"],
+[data-grok-show-all-chats-section-heading="true"] {
+  align-items: center;
+  box-sizing: border-box;
+  color: var(--color-fg-secondary, rgb(150 150 158));
+  display: flex;
+  flex: 0 0 28px;
+  font: 600 12px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  gap: 7px;
+  letter-spacing: 0;
+  min-width: 0;
+  padding: 0 10px;
+  width: 100%;
+}
+
+[data-grok-show-all-chats-section-heading="true"] {
+  flex-basis: 32px;
+  padding-top: 4px;
+}
+
+[data-grok-show-all-chats-heading="true"]::after,
+[data-grok-show-all-chats-section-heading="true"]::after {
+  background: var(--color-border-l1, rgba(127, 127, 127, 0.24));
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  min-width: 8px;
+}
+
+[data-grok-show-all-chats-heading="true"] > span {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-grok-show-all-chats-loading="true"] {
+  animation: grok-show-all-chats-spin 700ms linear infinite;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  border-right-color: transparent;
+  box-sizing: border-box;
+  display: block;
+  height: 10px;
+  opacity: 0.7;
+  width: 10px;
+}
+
+[data-grok-show-all-chats-status="true"] {
+  box-sizing: border-box;
+  color: var(--color-fg-secondary, rgb(140 140 150));
+  font: 400 12px/1.3 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+  max-width: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 1px 10px 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+[data-grok-show-all-chats-status="true"]:empty {
+  display: none;
+}
+
+[data-grok-show-all-chats-status-tone="error"] {
+  color: var(--color-destructive, rgb(235 95 105));
+}
+
+[data-grok-show-all-chats-list="true"] {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 1px;
+  max-width: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: visible;
+  padding: 0;
+  width: 100%;
+}
+
+[data-grok-show-all-chats-panel="true"][data-grok-show-all-chats-scroll-host="list"]
+  [data-grok-show-all-chats-list="true"] {
+  max-height: calc(100dvh - 240px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+[data-grok-show-all-chats-row="true"] {
+  align-items: center;
+  border-radius: 8px;
+  box-sizing: border-box;
+  color: var(--color-fg-primary, inherit);
+  display: flex;
+  flex: 0 0 32px;
+  gap: 1px;
+  max-width: 100%;
+  min-height: 32px;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  transition: background-color 100ms ease, color 100ms ease;
+  width: 100%;
+}
+
+[data-grok-show-all-chats-row="true"]:hover,
+[data-grok-show-all-chats-row="true"]:focus-within {
+  background: var(--color-button-ghost-hover, rgba(255, 255, 255, 0.08));
+}
+
+[data-grok-show-all-chats-active="true"] {
+  background: var(--color-button-ghost-hover, rgba(255, 255, 255, 0.1));
+}
+
+[data-grok-show-all-chats-link="true"] {
+  align-items: center;
+  align-self: stretch;
+  border-radius: 8px;
+  box-sizing: border-box;
+  color: inherit;
+  display: flex;
+  flex: 1 1 auto;
+  font: 500 14px/20px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 8px;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-grok-show-all-chats-link="true"]:hover {
+  background: transparent;
+}
+
+[data-grok-show-all-chats-link="true"]:focus-visible {
+  outline: 1px solid var(--color-ring, rgba(145, 145, 155, 0.7));
+  outline-offset: -2px;
+}
+
+[data-grok-show-all-chats-resize-handle="true"] {
+  background: transparent;
+  box-sizing: border-box;
+  cursor: col-resize;
+  display: block;
+  height: 0;
+  left: 0;
+  outline: none;
+  pointer-events: auto;
+  position: fixed;
+  top: 0;
+  touch-action: none;
+  width: 10px;
+  z-index: 2147483646;
+}
+
+[data-grok-show-all-chats-resize-handle="true"][hidden] {
+  display: none !important;
+}
+
+[data-grok-show-all-chats-resize-handle="true"]::after {
+  background: var(--color-ring, rgba(145, 145, 155, 0.72));
+  bottom: 0;
+  content: "";
+  left: 1px;
+  opacity: 0.2;
+  position: absolute;
+  top: 0;
+  transition: opacity 100ms ease;
+  width: 2px;
+}
+
+[data-grok-show-all-chats-resize-handle="true"]:hover::after,
+[data-grok-show-all-chats-resize-handle="true"]:focus-visible::after,
+[data-grok-show-all-chats-resizing="true"] [data-grok-show-all-chats-resize-handle="true"]::after {
+  opacity: 1;
+}
+
+[data-grok-show-all-chats-resizing="true"],
+[data-grok-show-all-chats-resizing="true"] * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+[data-grok-show-all-chats-menu-button="true"] {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  box-sizing: border-box;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex: 0 0 28px;
+  font: 600 18px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  height: 28px;
+  justify-content: center;
+  letter-spacing: 0;
+  margin: 0 2px 0 0;
+  min-width: 28px;
+  opacity: 0;
+  padding: 0 0 3px;
+  pointer-events: auto;
+  position: relative;
+  transition: background-color 100ms ease, opacity 100ms ease;
+  width: 28px;
+}
+
+[data-grok-show-all-chats-row="true"]:hover [data-grok-show-all-chats-menu-button="true"],
+[data-grok-show-all-chats-row="true"]:focus-within [data-grok-show-all-chats-menu-button="true"],
+[data-grok-show-all-chats-active="true"] [data-grok-show-all-chats-menu-button="true"],
+[data-grok-show-all-chats-menu-button="true"][aria-expanded="true"] {
+  opacity: 0.72;
+  pointer-events: auto;
+}
+
+[data-grok-show-all-chats-menu-button="true"]:hover,
+[data-grok-show-all-chats-menu-button="true"]:focus-visible,
+[data-grok-show-all-chats-menu-button="true"][aria-expanded="true"] {
+  background: var(--color-button-ghost-hover, rgba(255, 255, 255, 0.12));
+  opacity: 1;
+  outline: none;
+}
+
+[data-grok-show-all-chats-menu-button="true"]:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--color-ring, rgba(145, 145, 155, 0.7));
+}
+
+[data-grok-show-all-chats-navigating="true"] {
+  cursor: wait;
+}
+
+[data-grok-show-all-chats-navigating="true"] [data-grok-show-all-chats-link="true"] {
+  opacity: 0.62;
+}
+
+[data-grok-show-all-chats-navigating="true"] [data-grok-show-all-chats-menu-button="true"] {
+  color: transparent;
+  opacity: 1;
+  pointer-events: none;
+}
+
+[data-grok-show-all-chats-navigating="true"] [data-grok-show-all-chats-menu-button="true"]::after {
+  animation: grok-show-all-chats-spin 700ms linear infinite;
+  border: 1.5px solid var(--color-fg-secondary, rgb(150 150 158));
+  border-radius: 50%;
+  border-right-color: transparent;
+  box-sizing: border-box;
+  content: "";
+  height: 12px;
+  position: absolute;
+  width: 12px;
+}
+
+[data-grok-show-all-chats-menu="true"] {
+  background: var(--color-surface-l2, rgb(35 35 36));
+  border: 1px solid var(--color-border-l1, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.38);
+  box-sizing: border-box;
+  color: var(--color-fg-primary, rgb(245 245 245));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: calc(100vw - 16px);
+  min-width: 212px;
+  padding: 6px;
+  position: fixed;
+  z-index: 2147483647;
+}
+
+[data-grok-show-all-chats-menu-item="true"] {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  box-sizing: border-box;
+  color: inherit;
+  cursor: pointer;
+  font: 600 14px/1.25 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+  min-height: 36px;
+  overflow: hidden;
+  padding: 8px 10px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+[data-grok-show-all-chats-menu-item="true"]:hover,
+[data-grok-show-all-chats-menu-item="true"]:focus-visible {
+  background: var(--color-button-ghost-hover, rgba(255, 255, 255, 0.1));
+  outline: none;
+}
+
+[data-grok-show-all-chats-menu-item="true"]:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--color-ring, rgba(145, 145, 155, 0.7));
+}
+
+[data-grok-show-all-chats-menu-danger="true"] {
+  color: var(--color-destructive, rgb(255 105 115));
+}
+
+[data-grok-show-all-chats-empty="true"] {
+  box-sizing: border-box;
+  color: var(--color-fg-secondary, rgb(140 140 150));
+  font: 400 12px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 8px 10px 2px;
+  width: 100%;
+}
+
+@keyframes grok-show-all-chats-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (hover: none) {
+  [data-grok-show-all-chats-menu-button="true"] {
+    opacity: 0.58;
+    pointer-events: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-grok-show-all-chats-loading="true"],
+  [data-grok-show-all-chats-navigating="true"] [data-grok-show-all-chats-menu-button="true"]::after {
+    animation-duration: 1400ms;
+  }
+
+  [data-grok-show-all-chats-row="true"],
+  [data-grok-show-all-chats-menu-button="true"] {
+    transition: none;
+  }
+}

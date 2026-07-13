@@ -1,0 +1,11 @@
+{
+  "extensionName": {
+    "message": "Barra lateral de chats para Grok"
+  },
+  "extensionDescription": {
+    "message": "Extensión no oficial y de código abierto que muestra todo el historial de chats de Grok en la barra lateral."
+  },
+  "openSettings": {
+    "message": "Abrir los ajustes de la extensión"
+  }
+}
