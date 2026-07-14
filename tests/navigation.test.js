@@ -144,8 +144,16 @@ const pageBridgeMarker = "  document.addEventListener(REQUEST_EVENT, handleReque
 assert.ok(pageBridgeSource.includes(pageBridgeMarker), "Page bridge test hook marker is missing");
 const instrumentedPageBridgeSource = pageBridgeSource.replace(
   pageBridgeMarker,
-  `  globalThis.__pageBridgeTestApi = { getNavigationStatus, navigateToConversation, state };
-${pageBridgeMarker}`
+  `  globalThis.__pageBridgeTestApi = {
+    bindConversationStore,
+    getConversationMutationMetadata,
+    getNavigationStatus,
+    navigateToConversation,
+    processConversationStoreChange,
+    state
+  };
+${pageBridgeMarker}
+  return;`
 );
 vm.runInThisContext(instrumentedPageBridgeSource, { filename: "page-bridge.js" });
 
@@ -154,10 +162,15 @@ assert.ok(contentSource.includes(observerMarker), "Content test hook marker is m
 const instrumentedContentSource = contentSource.replace(
   observerMarker,
   `  globalThis.__navigationTestApi = {
+    applyConversationChangePayload,
     attemptConversationNavigation,
     beginNavigationScrollPreservation,
+    flushRealtimeRefresh,
     getPageBridgeNavigationStatus,
     handleListScroll,
+    isDeleteMutation,
+    mergeConversation,
+    reconcileConversationsWithApiSnapshot,
     refreshNewConversationFromApi,
     releaseNavigationScrollPreservation,
     settleNavigationScrollPreservation,
@@ -171,6 +184,57 @@ vm.runInThisContext(instrumentedContentSource, { filename: "content.js" });
 
 const testApi = globalThis.__navigationTestApi;
 const pageBridgeApi = globalThis.__pageBridgeTestApi;
+assert.equal(testApi.isDeleteMutation({
+  method: "DELETE",
+  path: "/rest/app-chat/conversations/chat-42/messages/message-7"
+}), false);
+assert.equal(testApi.isDeleteMutation({
+  method: "DELETE",
+  path: "/rest/app-chat/conversations/soft/chat-42"
+}), true);
+assert.deepEqual(
+  pageBridgeApi.getConversationMutationMetadata(
+    "/rest/app-chat/conversations/chat%2042",
+    { method: "PUT" }
+  ),
+  {
+    conversationId: "chat 42",
+    method: "PUT",
+    path: "/rest/app-chat/conversations/chat%2042"
+  }
+);
+assert.deepEqual(
+  pageBridgeApi.getConversationMutationMetadata(
+    "/rest/app-chat/conversations/soft/deleted-chat",
+    { method: "DELETE" }
+  ),
+  {
+    conversationId: "deleted-chat",
+    method: "DELETE",
+    path: "/rest/app-chat/conversations/soft/deleted-chat"
+  }
+);
+assert.equal(
+  pageBridgeApi.getConversationMutationMetadata(
+    "/rest/app-chat/conversations/chat-42",
+    { method: "GET" }
+  ),
+  null
+);
+assert.equal(
+  pageBridgeApi.getConversationMutationMetadata(
+    "https://example.com/rest/app-chat/conversations/chat-42",
+    { method: "PUT" }
+  ),
+  null
+);
+assert.equal(
+  pageBridgeApi.getConversationMutationMetadata(
+    "/rest/app-chat/settings/theme",
+    { method: "POST" }
+  ),
+  null
+);
 const navigationStarted = testApi.tryPageBridgeNavigation(
   new URL("/c/chat-42", location.origin),
   "chat-42"
@@ -313,6 +377,68 @@ assert.equal(testApi.state.newConversationRefreshId, "");
 assert.equal(testApi.state.newConversationRefreshTimer, 0);
 assert.equal(timers.has(pendingRefreshTimer), false);
 
+const bridgeChanges = [];
+documentTarget.addEventListener("grok-show-all-chats-conversation-change", () => {
+  bridgeChanges.push(JSON.parse(
+    root.getAttribute("data-grok-show-all-chats-conversation-change")
+  ));
+});
+let conversationStoreState = {
+  byId: {
+    tracked: {
+      conversationId: "tracked",
+      modifyTime: "2026-07-14T14:00:00.000Z",
+      starred: false,
+      title: "A much longer old title"
+    }
+  },
+  fetchGetConversation() {}
+};
+const observedConversationStore = {
+  getState: () => conversationStoreState,
+  subscribe: () => () => {}
+};
+pageBridgeApi.state.conversationStore = observedConversationStore;
+pageBridgeApi.bindConversationStore(observedConversationStore);
+conversationStoreState = {
+  ...conversationStoreState,
+  byId: {
+    tracked: {
+      conversationId: "tracked",
+      modifyTime: "2026-07-14T14:01:00.000Z",
+      starred: true,
+      title: "Short title"
+    },
+    "store-created": {
+      conversationId: "store-created",
+      modifyTime: "2026-07-14T14:02:00.000Z",
+      starred: false,
+      title: "Created without a reload"
+    }
+  }
+};
+pageBridgeApi.processConversationStoreChange();
+assert.equal(bridgeChanges.length, 1);
+assert.equal(bridgeChanges[0].source, "store");
+assert.deepEqual(
+  bridgeChanges[0].conversations.map((conversation) => conversation.conversationId),
+  ["tracked", "store-created"]
+);
+assert.equal(
+  bridgeChanges[0].conversations.find((conversation) => conversation.conversationId === "tracked").starred,
+  true
+);
+
+conversationStoreState = {
+  ...conversationStoreState,
+  byId: {
+    "store-created": conversationStoreState.byId["store-created"]
+  }
+};
+pageBridgeApi.processConversationStoreChange();
+assert.deepEqual(bridgeChanges[1].removedConversationIds, ["tracked"]);
+assert.equal(root.getAttribute("data-grok-show-all-chats-conversation-change"), null);
+
 async function testNewConversationApiRefresh() {
   fakeLocation.pathname = "/c/api-created";
   fakeLocation.href = "https://grok.com/c/api-created";
@@ -354,9 +480,157 @@ async function testNewConversationApiRefresh() {
   assert.equal(testApi.state.newConversationRefreshTimer, 0);
 }
 
+async function testRealtimeConversationSync() {
+  const originalRequestAnimationFrame = window.requestAnimationFrame;
+  const originalFetch = globalThis.fetch;
+  window.requestAnimationFrame = () => 1;
+  testApi.state.listScrollTop = 777;
+
+  try {
+    testApi.mergeConversation({
+      conversationId: "live-change",
+      createTime: "2026-07-14T15:00:00.000Z",
+      fromApi: true,
+      href: "/c/live-change",
+      modifyTime: "2026-07-14T15:00:00.000Z",
+      seenInApi: true,
+      source: "api",
+      starred: false,
+      title: "A much longer old conversation title"
+    });
+    testApi.applyConversationChangePayload({
+      conversations: [{
+        conversationId: "live-change",
+        modifyTime: "2026-07-14T15:01:00.000Z",
+        starred: true,
+        title: "Short title"
+      }],
+      source: "store"
+    }, { broadcast: false });
+
+    const updatedConversation = testApi.state.conversations.get("live-change");
+    assert.equal(updatedConversation.title, "Short title");
+    assert.equal(updatedConversation.starred, true);
+    assert.equal(updatedConversation.modifyTime, "2026-07-14T15:01:00.000Z");
+    assert.equal(testApi.state.listScrollTop, 777);
+    testApi.mergeConversation({
+      conversationId: "live-change",
+      fromApi: false,
+      href: "/c/live-change",
+      source: "dom",
+      title: "A much longer stale native sidebar title"
+    });
+    assert.equal(testApi.state.conversations.get("live-change").title, "Short title");
+    testApi.applyConversationChangePayload({
+      mutation: {
+        conversationId: "live-change",
+        method: "PUT",
+        path: "/rest/app-chat/conversations/live-change",
+        status: 200
+      },
+      source: "network"
+    }, { broadcast: false });
+    assert.equal(testApi.state.realtimeConversationIds.has("live-change"), false);
+
+    testApi.applyConversationChangePayload({
+      conversations: [{
+        conversationId: "event-created",
+        modifyTime: "2026-07-14T15:02:00.000Z",
+        starred: false,
+        title: "Created from a store event"
+      }],
+      source: "store"
+    }, { broadcast: false });
+    assert.equal(
+      testApi.state.conversations.get("event-created").title,
+      "Created from a store event"
+    );
+
+    testApi.applyConversationChangePayload({
+      conversations: [{
+        conversationId: "event-created",
+        temporary: true,
+        title: "Created from a store event"
+      }],
+      source: "store"
+    }, { broadcast: false });
+    assert.equal(testApi.state.conversations.has("event-created"), false);
+    testApi.applyConversationChangePayload({
+      conversations: [{
+        conversationId: "event-created",
+        temporary: false,
+        title: "Saved conversation"
+      }],
+      source: "store"
+    }, { broadcast: false });
+    assert.equal(testApi.state.conversations.has("event-created"), true);
+
+    testApi.applyConversationChangePayload({
+      mutation: {
+        conversationId: "event-created",
+        method: "DELETE",
+        path: "/rest/app-chat/conversations/soft/event-created",
+        status: 200
+      },
+      source: "network"
+    }, { broadcast: false });
+    assert.equal(testApi.state.conversations.has("event-created"), false);
+    assert.equal(testApi.state.suppressedConversationIds.has("event-created"), true);
+    assert.equal(testApi.mergeConversation({
+      conversationId: "event-created",
+      fromApi: false,
+      href: "/c/event-created",
+      source: "dom",
+      title: "Stale native row"
+    }), false);
+    assert.equal(testApi.state.conversations.has("event-created"), false);
+
+    testApi.mergeConversation({
+      conversationId: "store-removed",
+      fromApi: true,
+      href: "/c/store-removed",
+      seenInApi: true,
+      source: "api",
+      title: "Removed somewhere else"
+    });
+    testApi.applyConversationChangePayload({
+      removedConversationIds: ["store-removed"],
+      source: "store"
+    }, { broadcast: false });
+    window.clearTimeout(testApi.state.realtimeRefreshTimer);
+    testApi.state.realtimeRefreshTimer = 0;
+    globalThis.fetch = async () => ({
+      ok: false,
+      status: 404,
+      text: async () => ""
+    });
+    await testApi.flushRealtimeRefresh();
+    assert.equal(testApi.state.conversations.has("store-removed"), false);
+    assert.equal(testApi.state.suppressedConversationIds.has("store-removed"), true);
+
+    testApi.mergeConversation({
+      conversationId: "snapshot-removed",
+      fromApi: true,
+      href: "/c/snapshot-removed",
+      seenInApi: true,
+      source: "api",
+      title: "Missing from the complete API snapshot"
+    });
+    const fetchedConversationIds = new Set(testApi.state.conversations.keys());
+    fetchedConversationIds.delete("snapshot-removed");
+    testApi.reconcileConversationsWithApiSnapshot(fetchedConversationIds);
+    assert.equal(testApi.state.conversations.has("snapshot-removed"), false);
+    assert.equal(testApi.state.suppressedConversationIds.has("snapshot-removed"), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+    window.requestAnimationFrame = originalRequestAnimationFrame;
+  }
+}
+
 void testNewConversationApiRefresh()
+  .then(testRealtimeConversationSync)
   .then(() => {
-    console.log("Navigation, scroll preservation, and new-conversation sync tests passed.");
+    console.log("Navigation, scroll preservation, and live conversation sync tests passed.");
   })
   .catch((error) => {
     console.error(error);

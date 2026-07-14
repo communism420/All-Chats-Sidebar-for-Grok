@@ -5,8 +5,12 @@
   const REQUEST_ATTRIBUTE = "data-grok-show-all-chats-page-request";
   const RESPONSE_ATTRIBUTE = "data-grok-show-all-chats-page-response";
   const REQUEST_EVENT = "grok-show-all-chats-page-request";
+  const CHANGE_ATTRIBUTE = "data-grok-show-all-chats-conversation-change";
+  const CHANGE_EVENT = "grok-show-all-chats-conversation-change";
   const CHAT_PATH_PATTERN = /^\/(?:chat|chat-v1|chat-v2|c|conversation|grok\/chat)\/([^/?#]+)/i;
   const MAX_TURBOPACK_ATTEMPTS = 24;
+  const STORE_CHANGE_DEBOUNCE_MS = 50;
+  const NETWORK_HOOK_FLAG = "__allChatsSidebarForGrokNetworkHook";
 
   if (globalThis[BRIDGE_FLAG]) {
     return;
@@ -20,7 +24,11 @@
 
   const state = {
     chatPageStore: null,
+    conversationChangeTimer: 0,
     conversationStore: null,
+    conversationStoreSnapshot: new Map(),
+    conversationStoreSubscribed: null,
+    conversationStoreUnsubscribe: null,
     nextAppRouter: null,
     prefetchedConversations: new Map(),
     prefetchedRoutes: new Set(),
@@ -100,6 +108,7 @@
         const store = isConversationStore(candidate) ? candidate : candidate.useConversationStore;
         if (isConversationStore(store)) {
           state.conversationStore = store;
+          bindConversationStore(store);
         }
       }
     } catch {
@@ -135,6 +144,7 @@
       isConversationStore(state.conversationStore) &&
       isChatPageStore(state.chatPageStore)
     ) {
+      bindConversationStore(state.conversationStore);
       return true;
     }
 
@@ -529,6 +539,34 @@
     return { method: "none", started: false };
   }
 
+  function summarizeConversation(conversationId, conversation) {
+    if (!conversationId || !conversation || typeof conversation !== "object") {
+      return null;
+    }
+
+    const summary = {
+      conversationId: String(conversationId),
+      createTime: String(
+        conversation.createTime || conversation.createdAt || conversation.create_time || ""
+      ),
+      modifyTime: String(
+        conversation.modifyTime ||
+        conversation.updateTime ||
+        conversation.updatedAt ||
+        conversation.modify_time ||
+        ""
+      ),
+      title: String(conversation.title || conversation.conversationName || conversation.name || "")
+    };
+    if (Object.prototype.hasOwnProperty.call(conversation, "starred")) {
+      summary.starred = Boolean(conversation.starred);
+    }
+    if (Object.prototype.hasOwnProperty.call(conversation, "temporary")) {
+      summary.temporary = Boolean(conversation.temporary);
+    }
+    return summary;
+  }
+
   function getConversationSummary(conversationId) {
     if (!conversationId) {
       return null;
@@ -537,30 +575,228 @@
     try {
       const byId = getStoreState(state.conversationStore)?.byId;
       const conversation = byId instanceof Map ? byId.get(conversationId) : byId?.[conversationId];
-      if (!conversation || typeof conversation !== "object") {
+      return summarizeConversation(conversationId, conversation);
+    } catch {
+      return null;
+    }
+  }
+
+  function getConversationStoreSnapshot(store = state.conversationStore) {
+    const snapshot = new Map();
+    try {
+      const byId = getStoreState(store)?.byId;
+      const entries = byId instanceof Map ? [...byId.entries()] : Object.entries(byId || {});
+      for (const [key, conversation] of entries) {
+        const conversationId = String(
+          conversation?.conversationId || conversation?.conversation_id || conversation?.id || key || ""
+        );
+        const summary = summarizeConversation(conversationId, conversation);
+        if (summary) {
+          snapshot.set(conversationId, summary);
+        }
+      }
+    } catch {
+      // Ignore transient store proxies while Grok updates its module graph.
+    }
+    return snapshot;
+  }
+
+  function emitConversationChange(payload) {
+    const root = document.documentElement;
+    if (!root) {
+      return;
+    }
+
+    try {
+      root.setAttribute(CHANGE_ATTRIBUTE, JSON.stringify(payload));
+      document.dispatchEvent(new Event(CHANGE_EVENT));
+    } finally {
+      root.removeAttribute(CHANGE_ATTRIBUTE);
+    }
+  }
+
+  function processConversationStoreChange() {
+    state.conversationChangeTimer = 0;
+    const previous = state.conversationStoreSnapshot;
+    const next = getConversationStoreSnapshot();
+    const conversations = [];
+    const removedConversationIds = [];
+
+    for (const [conversationId, summary] of next) {
+      if (JSON.stringify(previous.get(conversationId)) !== JSON.stringify(summary)) {
+        conversations.push(summary);
+      }
+    }
+    for (const conversationId of previous.keys()) {
+      if (!next.has(conversationId)) {
+        removedConversationIds.push(conversationId);
+      }
+    }
+
+    state.conversationStoreSnapshot = next;
+    if (conversations.length || removedConversationIds.length) {
+      emitConversationChange({
+        conversations,
+        removedConversationIds,
+        source: "store"
+      });
+    }
+  }
+
+  function scheduleConversationStoreChange() {
+    if (state.conversationChangeTimer) {
+      globalThis.clearTimeout(state.conversationChangeTimer);
+    }
+    state.conversationChangeTimer = globalThis.setTimeout(
+      processConversationStoreChange,
+      STORE_CHANGE_DEBOUNCE_MS
+    );
+  }
+
+  function bindConversationStore(store) {
+    if (!store || state.conversationStoreSubscribed === store) {
+      return;
+    }
+
+    try {
+      state.conversationStoreUnsubscribe?.();
+    } catch {
+      // Ignore stale unsubscribe callbacks from replaced Grok stores.
+    }
+    if (state.conversationChangeTimer) {
+      globalThis.clearTimeout(state.conversationChangeTimer);
+      state.conversationChangeTimer = 0;
+    }
+
+    state.conversationStoreSubscribed = store;
+    state.conversationStoreSnapshot = getConversationStoreSnapshot(store);
+    state.conversationStoreUnsubscribe = null;
+    if (typeof store.subscribe !== "function") {
+      return;
+    }
+
+    try {
+      const unsubscribe = store.subscribe(scheduleConversationStoreChange);
+      if (typeof unsubscribe === "function") {
+        state.conversationStoreUnsubscribe = unsubscribe;
+      }
+    } catch {
+      // Network notifications remain available if the store cannot be subscribed to.
+    }
+  }
+
+  function extractConversationIdFromApiPath(pathname) {
+    const prefix = "/rest/app-chat/conversations/";
+    if (!String(pathname || "").toLowerCase().startsWith(prefix)) {
+      return "";
+    }
+
+    const segments = pathname.slice(prefix.length).split("/").filter(Boolean);
+    const candidate = segments[0]?.toLowerCase() === "soft" ? segments[1] : segments[0];
+    if (!candidate || ["create", "list", "new", "search"].includes(candidate.toLowerCase())) {
+      return "";
+    }
+    try {
+      return decodeURIComponent(candidate);
+    } catch {
+      return "";
+    }
+  }
+
+  function getConversationMutationMetadata(input, init = {}) {
+    try {
+      const method = String(init.method || input?.method || "GET").toUpperCase();
+      if (["GET", "HEAD", "OPTIONS"].includes(method)) {
         return null;
       }
 
-      const summary = {
-        conversationId,
-        createTime: String(
-          conversation.createTime || conversation.createdAt || conversation.create_time || ""
-        ),
-        modifyTime: String(
-          conversation.modifyTime ||
-          conversation.updateTime ||
-          conversation.updatedAt ||
-          conversation.modify_time ||
-          ""
-        ),
-        title: String(conversation.title || conversation.conversationName || conversation.name || "")
-      };
-      if (Object.prototype.hasOwnProperty.call(conversation, "starred")) {
-        summary.starred = Boolean(conversation.starred);
+      const inputUrl =
+        typeof input === "string" || input instanceof URL ? String(input) : String(input?.url || "");
+      const url = new URL(inputUrl, location.href);
+      const path = url.pathname;
+      const appChatPath = path.slice("/rest/app-chat/".length);
+      if (
+        url.origin !== location.origin ||
+        !path.startsWith("/rest/app-chat/") ||
+        !/(?:^|\/)(?:chats?|conversations?|responses?)(?:\/|$)/i.test(appChatPath)
+      ) {
+        return null;
       }
-      return summary;
+
+      return {
+        conversationId: extractConversationIdFromApiPath(path),
+        method,
+        path
+      };
     } catch {
       return null;
+    }
+  }
+
+  function reportConversationMutation(metadata, status) {
+    if (!metadata || status < 200 || status >= 400) {
+      return;
+    }
+    emitConversationChange({
+      mutation: { ...metadata, status },
+      source: "network"
+    });
+  }
+
+  function installNetworkHooks() {
+    if (globalThis[NETWORK_HOOK_FLAG]) {
+      return;
+    }
+    Object.defineProperty(globalThis, NETWORK_HOOK_FLAG, {
+      configurable: false,
+      value: true,
+      writable: false
+    });
+
+    const nativeFetch = globalThis.fetch;
+    if (typeof nativeFetch === "function") {
+      try {
+        globalThis.fetch = function (...args) {
+          const metadata = getConversationMutationMetadata(args[0], args[1]);
+          const request = Reflect.apply(nativeFetch, this, args);
+          if (!metadata) {
+            return request;
+          }
+          return Promise.resolve(request).then((response) => {
+            reportConversationMutation(metadata, Number(response?.status || 0));
+            return response;
+          });
+        };
+      } catch {
+        // Store notifications still work if fetch cannot be wrapped.
+      }
+    }
+
+    const xhrPrototype = globalThis.XMLHttpRequest?.prototype;
+    if (!xhrPrototype) {
+      return;
+    }
+    const nativeOpen = xhrPrototype.open;
+    const nativeSend = xhrPrototype.send;
+    const metadataKey = Symbol("all-chats-sidebar-conversation-mutation");
+    try {
+      xhrPrototype.open = function (method, url, ...args) {
+        this[metadataKey] = getConversationMutationMetadata({ method, url });
+        return Reflect.apply(nativeOpen, this, [method, url, ...args]);
+      };
+      xhrPrototype.send = function (...args) {
+        const metadata = this[metadataKey];
+        if (metadata) {
+          this.addEventListener(
+            "loadend",
+            () => reportConversationMutation(metadata, Number(this.status || 0)),
+            { once: true }
+          );
+        }
+        return Reflect.apply(nativeSend, this, args);
+      };
+    } catch {
+      // Store and fetch notifications remain available if XHR cannot be wrapped.
     }
   }
 
@@ -645,4 +881,5 @@
   }
 
   document.addEventListener(REQUEST_EVENT, handleRequest, false);
+  installNetworkHooks();
 })();

@@ -129,20 +129,74 @@
           starred,
           title
         }));
+        window.__fixtureConversations = conversations;
+        window.__fixtureRequests = [];
         const nativeFetch = window.fetch.bind(window);
+
+        function jsonResponse(data, status = 200) {
+          return new Response(JSON.stringify(data), {
+            headers: { "Content-Type": "application/json" },
+            status
+          });
+        }
+
+        function parseConversationPath(pathname) {
+          const match = /^\/rest\/app-chat\/conversations\/([^/]+)$/.exec(pathname);
+          return match ? decodeURIComponent(match[1]) : "";
+        }
 
         window.fetch = async (input, options) => {
           const requestUrl = new URL(typeof input === "string" ? input : input.url, location.href);
-          if (requestUrl.pathname === "/rest/app-chat/conversations") {
-            return new Response(JSON.stringify({ conversations }), {
-              headers: { "Content-Type": "application/json" },
-              status: 200
-            });
+          const method = String(options?.method || input?.method || "GET").toUpperCase();
+          const bodyText = options?.body || (input instanceof Request ? await input.clone().text() : "");
+          const body = bodyText ? JSON.parse(bodyText) : {};
+          window.__fixtureRequests.push({ method, path: requestUrl.pathname });
+
+          if (requestUrl.pathname === "/rest/app-chat/conversations" && method === "GET") {
+            return jsonResponse({ conversations });
+          }
+          if (requestUrl.pathname === "/rest/app-chat/conversations" && method === "POST") {
+            const conversation = {
+              conversationId: body.conversationId || `fixture-created-${Date.now()}`,
+              createTime: body.createTime || new Date().toISOString(),
+              modifyTime: body.modifyTime || new Date().toISOString(),
+              starred: Boolean(body.starred),
+              title: body.title || "New fixture conversation"
+            };
+            conversations.unshift(conversation);
+            return jsonResponse({ conversation }, 201);
+          }
+
+          const softDeleteMatch = /^\/rest\/app-chat\/conversations\/soft\/([^/]+)$/.exec(requestUrl.pathname);
+          if (softDeleteMatch && method === "DELETE") {
+            const conversationId = decodeURIComponent(softDeleteMatch[1]);
+            const index = conversations.findIndex((conversation) => conversation.conversationId === conversationId);
+            if (index < 0) {
+              return jsonResponse({ error: "Not found" }, 404);
+            }
+            conversations.splice(index, 1);
+            return new Response(null, { status: 204 });
+          }
+
+          const conversationId = parseConversationPath(requestUrl.pathname);
+          const conversation = conversations.find((item) => item.conversationId === conversationId);
+          if (conversationId && method === "GET") {
+            return conversation
+              ? jsonResponse({ conversation })
+              : jsonResponse({ error: "Not found" }, 404);
+          }
+          if (conversationId && method === "PUT") {
+            if (!conversation) {
+              return jsonResponse({ error: "Not found" }, 404);
+            }
+            Object.assign(conversation, body, { conversationId });
+            return jsonResponse({ conversation });
           }
           return nativeFetch(input, options);
         };
       })();
     </script>
+    <script src="/page-bridge.js"></script>
     <script src="/i18n.js"></script>
     <script src="/content.js"></script>
   </body>

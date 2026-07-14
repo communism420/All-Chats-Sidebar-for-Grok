@@ -6,6 +6,12 @@
   const MAX_PAGES_PER_LOAD = 50;
   const MUTATION_THROTTLE_MS = 250;
   const REFRESH_INTERVAL_MS = 120000;
+  const REALTIME_REFRESH_DEBOUNCE_MS = 120;
+  const FOCUS_RECONCILE_INTERVAL_MS = 30000;
+  const STORE_CHANGE_NETWORK_DEDUP_MS = 2000;
+  const MAX_SUPPRESSED_CONVERSATIONS = 500;
+  const MAX_REALTIME_CONVERSATIONS = 250;
+  const SYNC_CHANNEL_NAME = "all-chats-sidebar-for-grok-sync-v1";
   const NEW_CONVERSATION_REFRESH_DELAYS_MS = [0, 500, 1500, 3000, 7000, 15000];
   const NAVIGATION_RETRY_DELAY_MS = 120;
   const NAVIGATION_CONFIRM_DELAY_MS = 450;
@@ -25,6 +31,8 @@
   const PAGE_BRIDGE_REQUEST_ATTRIBUTE = "data-grok-show-all-chats-page-request";
   const PAGE_BRIDGE_RESPONSE_ATTRIBUTE = "data-grok-show-all-chats-page-response";
   const PAGE_BRIDGE_REQUEST_EVENT = "grok-show-all-chats-page-request";
+  const PAGE_BRIDGE_CHANGE_ATTRIBUTE = "data-grok-show-all-chats-conversation-change";
+  const PAGE_BRIDGE_CHANGE_EVENT = "grok-show-all-chats-conversation-change";
 
   const SHOW_ALL_PATTERNS = [
     /\bshow\s+all\b/i,
@@ -166,6 +174,17 @@
     sidebarWidthPixels: 0,
     sidebarWidthSidebar: null,
     conversationStore: null,
+    hiddenTemporaryConversationIds: new Set(),
+    lastCompleteApiRefreshAt: 0,
+    realtimeConversationIds: new Set(),
+    realtimeNeedsRecent: false,
+    realtimeNeedsReconcile: false,
+    realtimeRefreshRunning: false,
+    realtimeRefreshTimer: 0,
+    realtimeRemovalCandidates: new Set(),
+    recentStoreConversationChanges: new Map(),
+    suppressedConversationIds: new Set(),
+    syncChannel: null,
     turbopackBridgeAttempts: 0,
     turbopackBridgePending: false,
     widthSaveTimer: 0
@@ -646,12 +665,16 @@
       fromApi: true,
       href: hrefForConversationId(conversationId),
       modifyTime: normalizeText(raw.modifyTime || raw.updateTime || raw.updatedAt || raw.modify_time),
+      seenInApi: true,
       source: "api",
       title
     };
 
     if (Object.prototype.hasOwnProperty.call(raw, "starred")) {
       conversation.starred = Boolean(raw.starred);
+    }
+    if (Object.prototype.hasOwnProperty.call(raw, "temporary")) {
+      conversation.temporary = Boolean(raw.temporary);
     }
 
     return conversation;
@@ -690,31 +713,72 @@
     return nextTitle.length > existingTitle.length ? nextTitle : existingTitle;
   }
 
+  function chooseMergedTitle(existing, conversation) {
+    if (conversation.fromApi && conversation.source !== "dom" && conversation.title) {
+      return conversation.title;
+    }
+    if (conversation.source === "dom" && existing.fromApi && existing.title) {
+      return existing.title;
+    }
+    return chooseTitle(existing.title, conversation.title);
+  }
+
+  function rememberSuppressedConversationId(conversationId) {
+    if (!conversationId) {
+      return;
+    }
+
+    state.suppressedConversationIds.delete(conversationId);
+    state.suppressedConversationIds.add(conversationId);
+    while (state.suppressedConversationIds.size > MAX_SUPPRESSED_CONVERSATIONS) {
+      state.suppressedConversationIds.delete(state.suppressedConversationIds.values().next().value);
+    }
+  }
+
   function mergeConversation(conversation) {
     if (!conversation?.conversationId) {
       return false;
     }
 
-    const existing = state.conversations.get(conversation.conversationId);
+    const conversationId = String(conversation.conversationId);
+    if (conversation.temporary === true) {
+      state.hiddenTemporaryConversationIds.add(conversationId);
+      return state.conversations.delete(conversationId);
+    }
+    if (conversation.temporary === false || conversation.source === "api") {
+      state.hiddenTemporaryConversationIds.delete(conversationId);
+    }
+    if (
+      state.suppressedConversationIds.has(conversationId) ||
+      state.hiddenTemporaryConversationIds.has(conversationId)
+    ) {
+      return false;
+    }
+
+    const existing = state.conversations.get(conversationId);
     if (!existing) {
-      state.conversations.set(conversation.conversationId, {
+      state.conversations.set(conversationId, {
         ...conversation,
+        conversationId,
         sequence: state.sequence
       });
       state.sequence += 1;
       return true;
     }
 
-    state.conversations.set(conversation.conversationId, {
+    state.conversations.set(conversationId, {
       ...existing,
       ...conversation,
+      conversationId,
       createTime: conversation.createTime || existing.createTime,
       fromApi: Boolean(existing.fromApi || conversation.fromApi || conversation.source === "api"),
       href: conversation.source === "dom" ? conversation.href : existing.href || conversation.href,
       modifyTime: conversation.modifyTime || existing.modifyTime,
+      seenInApi: Boolean(existing.seenInApi || conversation.seenInApi || conversation.source === "api"),
       sequence: existing.sequence,
       starred: typeof conversation.starred === "boolean" ? conversation.starred : existing.starred,
-      title: conversation.source === "api" && conversation.title ? conversation.title : chooseTitle(existing.title, conversation.title)
+      temporary: typeof conversation.temporary === "boolean" ? conversation.temporary : existing.temporary,
+      title: chooseMergedTitle(existing, conversation)
     });
     return true;
   }
@@ -1562,9 +1626,13 @@
     updateSidebarResizeHandlePosition();
   }
 
-  function markRenderDirty() {
+  function markRenderDirty({ immediate = false } = {}) {
     state.lastRenderSignature = "";
-    scheduleRun();
+    if (immediate) {
+      scheduleImmediateRun();
+    } else {
+      scheduleRun();
+    }
   }
 
   function getConversationById(conversationId) {
@@ -1592,18 +1660,23 @@
       return;
     }
 
+    state.suppressedConversationIds.delete(conversation.conversationId);
+    state.hiddenTemporaryConversationIds.delete(conversation.conversationId);
     state.conversations.set(conversation.conversationId, conversation);
     markRenderDirty();
   }
 
-  function removeLocalConversation(conversationId) {
+  function removeLocalConversation(conversationId, { immediate = false, suppress = false } = {}) {
+    if (suppress) {
+      rememberSuppressedConversationId(conversationId);
+    }
     const existing = getConversationById(conversationId);
     if (!existing) {
       return null;
     }
 
     state.conversations.delete(conversationId);
-    markRenderDirty();
+    markRenderDirty({ immediate });
     return existing;
   }
 
@@ -1700,6 +1773,315 @@
 
     mergeConversation(conversation);
     markRenderDirty();
+  }
+
+  function normalizeConversationIds(values) {
+    if (!Array.isArray(values)) {
+      return [];
+    }
+
+    const ids = [];
+    const seen = new Set();
+    for (const value of values) {
+      const conversationId = normalizeText(value);
+      if (!conversationId || seen.has(conversationId)) {
+        continue;
+      }
+      seen.add(conversationId);
+      ids.push(conversationId);
+      if (ids.length >= MAX_REALTIME_CONVERSATIONS) {
+        break;
+      }
+    }
+    return ids;
+  }
+
+  function rememberStoreConversationChange(conversationId) {
+    state.recentStoreConversationChanges.delete(conversationId);
+    state.recentStoreConversationChanges.set(conversationId, Date.now());
+    state.realtimeConversationIds.delete(conversationId);
+    state.realtimeRemovalCandidates.delete(conversationId);
+    while (state.recentStoreConversationChanges.size > MAX_REALTIME_CONVERSATIONS) {
+      state.recentStoreConversationChanges.delete(
+        state.recentStoreConversationChanges.keys().next().value
+      );
+    }
+  }
+
+  function wasRecentlyChangedByStore(conversationId) {
+    const changedAt = state.recentStoreConversationChanges.get(conversationId) || 0;
+    return changedAt > 0 && Date.now() - changedAt <= STORE_CHANGE_NETWORK_DEDUP_MS;
+  }
+
+  function isDeleteMutation(mutation) {
+    const method = String(mutation?.method || "").toUpperCase();
+    const path = String(mutation?.path || "").toLowerCase();
+    return method === "DELETE" && (
+      /^\/rest\/app-chat\/conversations\/soft\/[^/]+\/?$/.test(path) ||
+      /^\/rest\/app-chat\/conversations\/[^/]+\/?$/.test(path)
+    );
+  }
+
+  function broadcastConversationSync({
+    conversationIds = [],
+    deletedConversationIds = [],
+    recent = false,
+    reconcile = false,
+    removalCandidates = []
+  } = {}) {
+    if (!state.syncChannel) {
+      return;
+    }
+
+    try {
+      state.syncChannel.postMessage({
+        conversationIds: normalizeConversationIds(conversationIds),
+        deletedConversationIds: normalizeConversationIds(deletedConversationIds),
+        recent: Boolean(recent),
+        reconcile: Boolean(reconcile),
+        removalCandidates: normalizeConversationIds(removalCandidates)
+      });
+    } catch {
+      // The local tab remains synchronized if the cross-tab channel is unavailable.
+    }
+  }
+
+  function hasQueuedRealtimeRefresh() {
+    return Boolean(
+      state.realtimeConversationIds.size ||
+      state.realtimeRemovalCandidates.size ||
+      state.realtimeNeedsRecent ||
+      state.realtimeNeedsReconcile
+    );
+  }
+
+  function scheduleRealtimeRefresh() {
+    if (state.realtimeRefreshTimer || state.realtimeRefreshRunning || !hasQueuedRealtimeRefresh()) {
+      return;
+    }
+    state.realtimeRefreshTimer = window.setTimeout(() => {
+      state.realtimeRefreshTimer = 0;
+      void flushRealtimeRefresh();
+    }, REALTIME_REFRESH_DEBOUNCE_MS);
+  }
+
+  function queueRealtimeRefresh({
+    conversationIds = [],
+    recent = false,
+    reconcile = false,
+    removalCandidates = []
+  } = {}) {
+    for (const conversationId of normalizeConversationIds(conversationIds)) {
+      if (
+        !state.realtimeConversationIds.has(conversationId) &&
+        state.realtimeConversationIds.size >= MAX_REALTIME_CONVERSATIONS
+      ) {
+        state.realtimeNeedsReconcile = true;
+        break;
+      }
+      state.realtimeConversationIds.add(conversationId);
+    }
+    for (const conversationId of normalizeConversationIds(removalCandidates)) {
+      if (
+        !state.realtimeConversationIds.has(conversationId) &&
+        state.realtimeConversationIds.size >= MAX_REALTIME_CONVERSATIONS
+      ) {
+        state.realtimeNeedsReconcile = true;
+        break;
+      }
+      state.realtimeConversationIds.add(conversationId);
+      state.realtimeRemovalCandidates.add(conversationId);
+    }
+    state.realtimeNeedsRecent = state.realtimeNeedsRecent || Boolean(recent);
+    state.realtimeNeedsReconcile = state.realtimeNeedsReconcile || Boolean(reconcile);
+    scheduleRealtimeRefresh();
+  }
+
+  async function refreshConversationById(conversationId, { removeIfMissing = false } = {}) {
+    try {
+      const data = await requestConversationApi(conversationPath(conversationId));
+      const conversation = conversationFromActionResponse(data);
+      if (!conversation) {
+        return false;
+      }
+      if (mergeConversationForRender(conversation)) {
+        markRenderDirty({ immediate: true });
+      }
+      return true;
+    } catch (error) {
+      if (removeIfMissing && (error?.status === 404 || error?.status === 410)) {
+        removeLocalConversation(conversationId, { immediate: true, suppress: true });
+        return true;
+      }
+      return false;
+    }
+  }
+
+  async function refreshRecentConversationsFromApi() {
+    try {
+      const data = await fetchConversationPage("");
+      const conversations = getConversationListFromResponse(data)
+        .map(conversationFromApi)
+        .filter(Boolean);
+      if (mergeConversationsForRender(conversations)) {
+        markRenderDirty({ immediate: true });
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function flushRealtimeRefresh() {
+    if (state.realtimeRefreshRunning) {
+      return;
+    }
+    if (state.apiLoading || state.newConversationRefreshLoading) {
+      scheduleRealtimeRefresh();
+      return;
+    }
+
+    const conversationIds = [...state.realtimeConversationIds];
+    const removalCandidates = new Set(state.realtimeRemovalCandidates);
+    const needsRecent = state.realtimeNeedsRecent;
+    const needsReconcile = state.realtimeNeedsReconcile;
+    state.realtimeConversationIds.clear();
+    state.realtimeRemovalCandidates.clear();
+    state.realtimeNeedsRecent = false;
+    state.realtimeNeedsReconcile = false;
+    state.realtimeRefreshRunning = true;
+
+    try {
+      await Promise.all(
+        conversationIds.map((conversationId) => refreshConversationById(conversationId, {
+          removeIfMissing: removalCandidates.has(conversationId)
+        }))
+      );
+      if (needsRecent && !needsReconcile) {
+        await refreshRecentConversationsFromApi();
+      }
+      if (needsReconcile) {
+        await loadConversationsFromApi({ background: true, reconcile: true, reset: true });
+      }
+    } finally {
+      state.realtimeRefreshRunning = false;
+      scheduleRealtimeRefresh();
+    }
+  }
+
+  function applyConversationChangePayload(payload, { broadcast = true } = {}) {
+    if (!payload || typeof payload !== "object") {
+      return;
+    }
+
+    const changedConversationIds = [];
+    let changed = false;
+    if (Array.isArray(payload.conversations)) {
+      for (const raw of payload.conversations.slice(0, MAX_REALTIME_CONVERSATIONS)) {
+        const conversation = conversationFromApi(raw);
+        if (!conversation) {
+          continue;
+        }
+        conversation.seenInApi = false;
+        conversation.source = "store";
+        changedConversationIds.push(conversation.conversationId);
+        rememberStoreConversationChange(conversation.conversationId);
+        changed = mergeConversationForRender(conversation) || changed;
+      }
+    }
+    if (changed) {
+      markRenderDirty({ immediate: true });
+    }
+
+    const removalCandidates = normalizeConversationIds(payload.removedConversationIds);
+    const mutation = payload.mutation && typeof payload.mutation === "object"
+      ? payload.mutation
+      : null;
+    const mutationConversationId = normalizeText(mutation?.conversationId);
+    const deletedConversationIds = [];
+    const broadcastRefreshConversationIds = [];
+    const refreshConversationIds = [];
+    let recent = false;
+    let reconcile = false;
+
+    if (mutation) {
+      if (isDeleteMutation(mutation)) {
+        if (mutationConversationId) {
+          removeLocalConversation(mutationConversationId, { immediate: true, suppress: true });
+          deletedConversationIds.push(mutationConversationId);
+        } else {
+          reconcile = true;
+        }
+      } else if (mutationConversationId) {
+        broadcastRefreshConversationIds.push(mutationConversationId);
+        if (!wasRecentlyChangedByStore(mutationConversationId)) {
+          refreshConversationIds.push(mutationConversationId);
+        }
+      } else {
+        recent = true;
+      }
+    }
+
+    queueRealtimeRefresh({
+      conversationIds: refreshConversationIds,
+      recent,
+      reconcile,
+      removalCandidates
+    });
+
+    if (broadcast) {
+      broadcastConversationSync({
+        conversationIds: [...changedConversationIds, ...broadcastRefreshConversationIds],
+        deletedConversationIds,
+        recent,
+        reconcile,
+        removalCandidates
+      });
+    }
+  }
+
+  function handlePageBridgeConversationChange() {
+    const root = document.documentElement;
+    const raw = root?.getAttribute(PAGE_BRIDGE_CHANGE_ATTRIBUTE) || "";
+    if (!raw) {
+      return;
+    }
+
+    try {
+      applyConversationChangePayload(JSON.parse(raw));
+    } catch {
+      // Ignore malformed page data without interrupting sidebar updates.
+    }
+  }
+
+  function handleSyncChannelMessage(event) {
+    const payload = event?.data;
+    if (!payload || typeof payload !== "object") {
+      return;
+    }
+
+    for (const conversationId of normalizeConversationIds(payload.deletedConversationIds)) {
+      removeLocalConversation(conversationId, { immediate: true, suppress: true });
+    }
+    queueRealtimeRefresh({
+      conversationIds: payload.conversationIds,
+      recent: Boolean(payload.recent),
+      reconcile: Boolean(payload.reconcile),
+      removalCandidates: payload.removalCandidates
+    });
+  }
+
+  function setupConversationSyncChannel() {
+    if (typeof globalThis.BroadcastChannel !== "function") {
+      return;
+    }
+
+    try {
+      state.syncChannel = new BroadcastChannel(SYNC_CHANNEL_NAME);
+      state.syncChannel.addEventListener("message", handleSyncChannelMessage);
+    } catch {
+      state.syncChannel = null;
+    }
   }
 
   function closeChatMenu({ restoreFocus = false } = {}) {
@@ -1840,6 +2222,7 @@
 
     try {
       applyServerConversation(await updateConversationOnServer(conversationId, body));
+      broadcastConversationSync({ conversationIds: [conversationId] });
     } catch (error) {
       if (previous) {
         restoreLocalConversation(previous);
@@ -1861,6 +2244,7 @@
 
     try {
       applyServerConversation(await updateConversationOnServer(conversationId, { starred }));
+      broadcastConversationSync({ conversationIds: [conversationId] });
     } catch (error) {
       if (previous) {
         restoreLocalConversation(previous);
@@ -1882,10 +2266,11 @@
       return;
     }
 
-    const previous = removeLocalConversation(conversationId);
+    const previous = removeLocalConversation(conversationId, { immediate: true, suppress: true });
 
     try {
       await softDeleteConversationOnServer(conversationId);
+      broadcastConversationSync({ deletedConversationIds: [conversationId] });
       if (conversationId === getCurrentConversationId()) {
         navigateToHomeSeamlessly();
       }
@@ -2130,7 +2515,7 @@
 
     try {
       const conversation = conversationFromApi({ ...rawConversation, conversationId });
-      return conversation ? { ...conversation, source: "store" } : null;
+      return conversation ? { ...conversation, seenInApi: false, source: "store" } : null;
     } catch {
       return null;
     }
@@ -2794,21 +3179,49 @@
     }
   }
 
-  async function loadConversationsFromApi({ reset = false } = {}) {
+  function reconcileConversationsWithApiSnapshot(fetchedConversationIds) {
+    let changed = false;
+
+    for (const [conversationId, conversation] of state.conversations) {
+      if (
+        fetchedConversationIds.has(conversationId) ||
+        !conversation.seenInApi ||
+        conversationId === state.newConversationRefreshId
+      ) {
+        continue;
+      }
+      rememberSuppressedConversationId(conversationId);
+      state.conversations.delete(conversationId);
+      changed = true;
+    }
+
+    if (changed) {
+      markRenderDirty({ immediate: true });
+    }
+    return changed;
+  }
+
+  async function loadConversationsFromApi({ background = false, reconcile = false, reset = false } = {}) {
     if (state.apiLoading) {
-      return;
+      return false;
     }
 
     state.apiStarted = true;
     state.apiLoading = true;
-    state.apiError = "";
+    if (!background) {
+      state.apiError = "";
+    }
 
     if (reset) {
-      state.apiDone = false;
+      if (!background) {
+        state.apiDone = false;
+      }
       state.nextPageToken = "";
     }
 
     scheduleRun();
+    const fetchedConversationIds = new Set();
+    let completed = false;
 
     try {
       let pageToken = state.nextPageToken;
@@ -2820,6 +3233,9 @@
           .map(conversationFromApi)
           .filter(Boolean);
 
+        for (const conversation of conversations) {
+          fetchedConversationIds.add(conversation.conversationId);
+        }
         mergeConversations(conversations);
         pagesLoaded += 1;
 
@@ -2829,19 +3245,29 @@
         scheduleRun();
 
         if (!pageToken) {
+          completed = true;
           break;
         }
       }
 
       if (state.nextPageToken) {
         state.apiError = t("historyTooLarge");
+      } else {
+        state.apiError = "";
+        state.lastCompleteApiRefreshAt = Date.now();
+        if (reconcile) {
+          reconcileConversationsWithApiSnapshot(fetchedConversationIds);
+        }
       }
     } catch (error) {
-      state.apiError = error instanceof Error ? error.message : t("unknownError");
+      if (!background || state.conversations.size === 0) {
+        state.apiError = error instanceof Error ? error.message : t("unknownError");
+      }
     } finally {
       state.apiLoading = false;
       scheduleRun();
     }
+    return completed;
   }
 
   function maybeStartApiLoad() {
@@ -2855,7 +3281,24 @@
       return;
     }
 
-    void loadConversationsFromApi({ reset: true });
+    void loadConversationsFromApi({ background: true, reconcile: true, reset: true });
+  }
+
+  function maybeReconcileAfterResume() {
+    scheduleRun();
+    if (
+      state.apiStarted &&
+      !state.apiLoading &&
+      Date.now() - state.lastCompleteApiRefreshAt >= FOCUS_RECONCILE_INTERVAL_MS
+    ) {
+      queueRealtimeRefresh({ reconcile: true });
+    }
+  }
+
+  function handleVisibilityChange() {
+    if (document.visibilityState === "visible") {
+      maybeReconcileAfterResume();
+    }
   }
 
   async function run() {
@@ -2914,13 +3357,14 @@
   });
 
   document.documentElement.addEventListener(i18n.LANGUAGE_CHANGE_EVENT, handleLanguagePreferenceChange);
+  document.addEventListener(PAGE_BRIDGE_CHANGE_EVENT, handlePageBridgeConversationChange, false);
   document.addEventListener("pointerdown", handleDocumentPointerDown, true);
   document.addEventListener("keydown", handleDocumentKeyDown, true);
   window.addEventListener("pointermove", handleSidebarResizePointerMove, { passive: false });
   window.addEventListener("pointerup", finishSidebarResize, { passive: false });
   window.addEventListener("pointercancel", finishSidebarResize, { passive: false });
   window.addEventListener("popstate", scheduleRun);
-  window.addEventListener("focus", scheduleRun);
+  window.addEventListener("focus", maybeReconcileAfterResume);
   window.addEventListener("resize", () => {
     closeChatMenu();
     if (state.sidebarWidthSidebar && document.contains(state.sidebarWidthSidebar)) {
@@ -2934,8 +3378,10 @@
   }, true);
   window.setInterval(scheduleRun, 1000);
   window.setInterval(maybeRefreshApiLoad, REFRESH_INTERVAL_MS);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
 
   globalThis.chrome?.storage?.onChanged?.addListener(handleSidebarWidthStorageChange);
+  setupConversationSyncChannel();
   loadSidebarWidthPreference();
   scheduleRun();
 })();

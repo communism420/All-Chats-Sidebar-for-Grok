@@ -24,6 +24,8 @@ Upload `dist/grok-show-all-chats-1.0.1.zip`. The script verifies the fixed versi
 
 > All Chats Sidebar for Grok replaces Grok's shortened sidebar history with one continuous list containing all available chats. Pinned chats stay separated at the top, and the rest of the history remains in the same scrollable area.
 >
+> New chats, title changes, pin state, activity order, and deletions update live across open Grok tabs without requiring a page reload.
+>
 > Open chats without a page reload, resize the sidebar by dragging its right edge, and use each chat's menu to open it in a new tab, rename it, pin or unpin it, or delete it. The interface supports English, Spanish, German, Brazilian Portuguese, Russian, Ukrainian, and French.
 >
 > A signed-in Grok account is required. This extension is unofficial and is not affiliated with, endorsed by, or sponsored by xAI.

@@ -26,6 +26,13 @@ try {
     throw "Navigation regression tests failed."
   }
 
+  if ($env:RUN_BROWSER_TESTS -eq "1") {
+    & node "tests/realtime-sync.browser.test.mjs"
+    if ($LASTEXITCODE -ne 0) {
+      throw "Chromium live-sync tests failed."
+    }
+  }
+
   $siteFiles = @(
     "docs\.nojekyll",
     "docs\assets\logo.png",
