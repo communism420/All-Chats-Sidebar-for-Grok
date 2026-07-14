@@ -34,6 +34,10 @@ Upload `dist/grok-show-all-chats-1.0.1.zip`. The script verifies the fixed versi
 
 Keep localized listings consistent with these claims. Do not add capabilities that the extension does not provide.
 
+## Update notes
+
+The plain-text release notes in [CHANGELOG.md](CHANGELOG.md) are written for direct use in the Chrome Web Store listing. When publishing an update log, append that text to the detailed description without adding developer-only implementation details.
+
 ## Privacy dashboard
 
 **Single purpose:**
