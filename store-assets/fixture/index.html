@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en" data-grok-show-all-chats-language="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Grok - Screenshot fixture</title>
+    <link rel="stylesheet" href="/store-assets/fixture/fixture.css">
+    <link rel="stylesheet" href="/content.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" data-sidebar="sidebar" aria-label="Grok sidebar">
+        <header class="sidebar-header" data-sidebar="header">
+          <img src="/icons/icon48.png" width="34" height="34" alt="">
+          <button class="icon-button collapse-button" type="button" aria-label="Collapse sidebar">&lt;&lt;</button>
+        </header>
+
+        <div class="sidebar-content" data-sidebar="content">
+          <nav class="primary-nav" aria-label="Grok tools">
+            <a href="/search"><span class="nav-icon search-icon" aria-hidden="true"></span><span>Search</span></a>
+            <a href="/" class="primary-command"><span class="nav-icon plus-icon" aria-hidden="true">+</span><span>New chat</span></a>
+            <a href="/imagine"><span class="nav-icon letter-icon" aria-hidden="true">I</span><span>Imagine</span></a>
+            <a href="/build"><span class="nav-icon code-icon" aria-hidden="true">&lt;/&gt;</span><span>Build</span><span class="new-badge">New</span></a>
+            <a href="/skills"><span class="nav-icon grid-icon" aria-hidden="true"></span><span>Skills and connectors</span></a>
+          </nav>
+
+          <div class="native-history" aria-label="Native shortened history">
+            <div class="native-heading">Today</div>
+            <a href="/c/demo-launch">Product launch checklist</a>
+            <a href="/c/demo-engineering">Weekly engineering notes</a>
+            <a href="/c/demo-language">Language learning plan for the next twelve weeks</a>
+            <a href="/c/demo-energy">Research notes: renewable energy</a>
+            <a href="/c/demo-office">Home office setup ideas</a>
+            <button type="button">Show all</button>
+          </div>
+        </div>
+
+        <footer class="sidebar-footer" data-sidebar="footer">
+          <div class="profile-avatar" aria-hidden="true">D</div>
+          <div class="profile-copy">
+            <strong>Demo workspace</strong>
+            <span>Fictional preview data</span>
+          </div>
+          <button class="icon-button" type="button" aria-label="Account menu">...</button>
+        </footer>
+      </aside>
+
+      <main class="chat-page">
+        <header class="chat-toolbar">
+          <button class="model-button" type="button">Grok 4 <span aria-hidden="true">v</span></button>
+          <div class="toolbar-actions">
+            <button type="button">Share</button>
+            <button class="icon-button" type="button" aria-label="More options">...</button>
+          </div>
+        </header>
+
+        <section class="conversation" aria-labelledby="conversation-title">
+          <div class="conversation-kicker">Demo conversation</div>
+          <h1 id="conversation-title">Product launch checklist</h1>
+
+          <div class="message message-user">
+            <div class="message-avatar">Y</div>
+            <div>
+              <strong>You</strong>
+              <p>Create a concise launch checklist for a small browser extension.</p>
+            </div>
+          </div>
+
+          <div class="message message-assistant">
+            <img class="message-avatar image-avatar" src="/icons/icon48.png" width="34" height="34" alt="">
+            <div>
+              <strong>Grok</strong>
+              <p>Here is a practical checklist for a clean first release:</p>
+              <ul>
+                <li>Review the store listing and permission disclosures.</li>
+                <li>Upload approved screenshots with fictional test data.</li>
+                <li>Verify the public privacy-policy URL.</li>
+                <li>Provide clear reviewer instructions.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <div class="composer" aria-label="Message composer">
+          <button class="composer-add" type="button" aria-label="Add attachment">+</button>
+          <span>Ask anything</span>
+          <button class="send-button" type="button" aria-label="Send message">^</button>
+        </div>
+        <p class="disclaimer">Grok can make mistakes. Verify important information.</p>
+      </main>
+    </div>
+
+    <script>
+      (() => {
+        const titles = [
+          ["demo-launch", "Product launch checklist", true],
+          ["demo-engineering", "Weekly engineering notes", true],
+          ["demo-language", "Language learning plan for the next twelve weeks", true],
+          ["demo-energy", "Research notes: renewable energy", false],
+          ["demo-office", "Home office setup ideas", false],
+          ["demo-recipes", "Budget-friendly dinner recipes", false],
+          ["demo-browsers", "Compare privacy-focused browsers", false],
+          ["demo-hiking", "Plan a weekend hiking route", false],
+          ["demo-javascript", "JavaScript performance checklist", false],
+          ["demo-books", "Book club discussion prompts", false],
+          ["demo-accessibility", "Design system accessibility audit", false],
+          ["demo-packing", "Travel packing list for spring", false],
+          ["demo-morning", "Healthy morning routine", false],
+          ["demo-photos", "Organize a fictional photo archive", false],
+          ["demo-lighting", "Learn basic photography lighting", false],
+          ["demo-interview", "Prepare for a technical interview", false],
+          ["demo-plants", "Apartment plant care schedule", false],
+          ["demo-reading", "Create a personal reading tracker", false],
+          ["demo-story", "Outline a science fiction short story", false],
+          ["demo-music", "Music practice schedule", false],
+          ["demo-backups", "Back up important documents safely", false],
+          ["demo-community", "Community event planning notes", false],
+          ["demo-workflow", "Improve a focused morning workflow", false],
+          ["demo-css", "Responsive CSS layout reference", false],
+          ["demo-garden", "Small balcony garden ideas", false],
+          ["demo-writing", "Editing checklist for clear writing", false]
+        ];
+
+        const baseTime = Date.parse("2026-07-14T12:00:00Z");
+        const conversations = titles.map(([conversationId, title, starred], index) => ({
+          conversationId,
+          createTime: new Date(baseTime - index * 3600000).toISOString(),
+          modifyTime: new Date(baseTime - index * 3600000).toISOString(),
+          starred,
+          title
+        }));
+        const nativeFetch = window.fetch.bind(window);
+
+        window.fetch = async (input, options) => {
+          const requestUrl = new URL(typeof input === "string" ? input : input.url, location.href);
+          if (requestUrl.pathname === "/rest/app-chat/conversations") {
+            return new Response(JSON.stringify({ conversations }), {
+              headers: { "Content-Type": "application/json" },
+              status: 200
+            });
+          }
+          return nativeFetch(input, options);
+        };
+      })();
+    </script>
+    <script src="/i18n.js"></script>
+    <script src="/content.js"></script>
+  </body>
+</html>

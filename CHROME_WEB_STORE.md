@@ -73,7 +73,7 @@ Never put test credentials in this repository, the public listing, screenshots, 
 ## Listing assets
 
 - Use the packaged `icons/icon128.png` as the 128 x 128 store icon. All packaged sizes are generated from the project's `logo.png` master artwork.
-- Provide at least one 1280 x 800 screenshot of the working extension. Use 640 x 400 only if necessary.
+- Upload the 1280 x 800 PNG files from `store-assets/screenshots/`. They are generated from a deterministic fixture that runs the extension's actual sidebar code with fictional data.
 - Provide the required 440 x 280 small promotional image.
 - Keep the product name, description, screenshots, and promotional images clearly unofficial and consistent with the extension's actual behavior.
 
