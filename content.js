@@ -106,6 +106,7 @@
   ];
 
   const CHAT_PATH_PATTERN = /^\/(?:chat|chat-v1|chat-v2|c|conversation|grok\/chat)\/([^/?#]+)/i;
+  const CONVERSATION_UUID_PATTERN = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
   const i18n = globalThis.GrokShowAllChatsI18n;
   if (!i18n) {
     return;
@@ -268,6 +269,10 @@
 
   function hrefForConversationId(conversationId) {
     return `/c/${encodeURIComponent(conversationId)}`;
+  }
+
+  function isConversationUuid(conversationId) {
+    return CONVERSATION_UUID_PATTERN.test(String(conversationId || ""));
   }
 
   function pathSearchHash(url) {
@@ -756,6 +761,19 @@
     }
 
     const existing = state.conversations.get(conversationId);
+    if (
+      !existing &&
+      (
+        conversation.source === "route" ||
+        (
+          conversation.source !== "api" &&
+          !conversation.seenInApi &&
+          !isConversationUuid(conversationId)
+        )
+      )
+    ) {
+      return false;
+    }
     if (!existing) {
       state.conversations.set(conversationId, {
         ...conversation,
@@ -1082,18 +1100,22 @@
   }
 
   function sortedConversations() {
-    return [...state.conversations.values()].sort((a, b) => {
-      if (Boolean(a.starred) !== Boolean(b.starred)) {
-        return a.starred ? -1 : 1;
-      }
+    return [...state.conversations.values()]
+      .filter((conversation) => (
+        conversation.seenInApi || isConversationUuid(conversation.conversationId)
+      ))
+      .sort((a, b) => {
+        if (Boolean(a.starred) !== Boolean(b.starred)) {
+          return a.starred ? -1 : 1;
+        }
 
-      const timeA = parseTime(a.modifyTime || a.createTime);
-      const timeB = parseTime(b.modifyTime || b.createTime);
-      if (timeA !== timeB) {
-        return timeB - timeA;
-      }
-      return a.sequence - b.sequence;
-    });
+        const timeA = parseTime(a.modifyTime || a.createTime);
+        const timeB = parseTime(b.modifyTime || b.createTime);
+        if (timeA !== timeB) {
+          return timeB - timeA;
+        }
+        return a.sequence - b.sequence;
+      });
   }
 
   function partitionConversations(conversations) {
@@ -1982,6 +2004,14 @@
         if (!conversation) {
           continue;
         }
+        const existing = getConversationById(conversation.conversationId);
+        if (!isConversationUuid(conversation.conversationId) && !existing?.seenInApi) {
+          if (existing) {
+            state.conversations.delete(conversation.conversationId);
+            changed = true;
+          }
+          continue;
+        }
         conversation.seenInApi = false;
         conversation.source = "store";
         changedConversationIds.push(conversation.conversationId);
@@ -1993,7 +2023,10 @@
       markRenderDirty({ immediate: true });
     }
 
-    const removalCandidates = normalizeConversationIds(payload.removedConversationIds);
+    const removalCandidates = normalizeConversationIds(payload.removedConversationIds)
+      .filter((conversationId) => (
+        isConversationUuid(conversationId) || getConversationById(conversationId)?.seenInApi
+      ));
     const mutation = payload.mutation && typeof payload.mutation === "object"
       ? payload.mutation
       : null;
@@ -2013,9 +2046,14 @@
           reconcile = true;
         }
       } else if (mutationConversationId) {
-        broadcastRefreshConversationIds.push(mutationConversationId);
-        if (!wasRecentlyChangedByStore(mutationConversationId)) {
-          refreshConversationIds.push(mutationConversationId);
+        const existing = getConversationById(mutationConversationId);
+        if (isConversationUuid(mutationConversationId) || existing?.seenInApi) {
+          broadcastRefreshConversationIds.push(mutationConversationId);
+          if (!wasRecentlyChangedByStore(mutationConversationId)) {
+            refreshConversationIds.push(mutationConversationId);
+          }
+        } else {
+          recent = true;
         }
       } else {
         recent = true;
@@ -2263,6 +2301,12 @@
 
     const title = conversation.title || t("untitledChat");
     if (!window.confirm(t("deleteConfirm", { title }))) {
+      return;
+    }
+
+    if (!conversation.seenInApi && !isConversationUuid(conversationId)) {
+      removeLocalConversation(conversationId, { immediate: true, suppress: true });
+      broadcastConversationSync({ deletedConversationIds: [conversationId] });
       return;
     }
 
@@ -2585,19 +2629,12 @@
       changed = mergeConversationForRender(candidate) || changed;
     }
 
-    let current = getConversationById(conversationId);
+    const current = getConversationById(conversationId);
     if (!current) {
-      const timestamp = new Date().toISOString();
-      changed = mergeConversationForRender({
-        conversationId,
-        createTime: timestamp,
-        fromApi: false,
-        href: hrefForConversationId(conversationId),
-        modifyTime: timestamp,
-        source: "route",
-        title: ""
-      }) || changed;
-      current = getConversationById(conversationId);
+      if (isCanonical) {
+        queueNewConversationRefresh(conversationId);
+      }
+      return changed;
     }
 
     if (current?.fromApi && current.title) {

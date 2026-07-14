@@ -165,15 +165,18 @@ const instrumentedContentSource = contentSource.replace(
     applyConversationChangePayload,
     attemptConversationNavigation,
     beginNavigationScrollPreservation,
+    deleteConversation,
     flushRealtimeRefresh,
     getPageBridgeNavigationStatus,
     handleListScroll,
+    isConversationUuid,
     isDeleteMutation,
     mergeConversation,
     reconcileConversationsWithApiSnapshot,
     refreshNewConversationFromApi,
     releaseNavigationScrollPreservation,
     settleNavigationScrollPreservation,
+    sortedConversations,
     state,
     syncActiveConversation,
     tryPageBridgeNavigation
@@ -338,26 +341,51 @@ assert.equal(scrollHost.scrollTop, 624);
 assert.equal(testApi.state.navigationScrollTarget, "");
 assert.equal(testApi.state.navigationScrollSettling, false);
 
-fakeLocation.pathname = "/c/newly-created";
-fakeLocation.href = "https://grok.com/c/newly-created";
+const persistedNewConversationId = "11111111-1111-4111-8111-111111111111";
+assert.equal(testApi.isConversationUuid("new"), false);
+assert.equal(testApi.isConversationUuid(persistedNewConversationId), true);
+
+fakeLocation.pathname = "/c/new";
+fakeLocation.href = "https://grok.com/c/new";
 pageBridgeApi.state.conversationStore = null;
 const insertedNewConversation = testApi.syncActiveConversation();
 const pendingRefreshTimer = testApi.state.newConversationRefreshTimer;
-assert.equal(insertedNewConversation, true);
-assert.equal(testApi.state.conversations.has("newly-created"), true);
-assert.equal(testApi.state.conversations.get("newly-created").title, "");
-assert.equal(testApi.state.conversations.get("newly-created").fromApi, false);
-assert.equal(testApi.state.newConversationRefreshId, "newly-created");
+assert.equal(insertedNewConversation, false);
+assert.equal(testApi.state.conversations.has("new"), false);
+assert.equal(testApi.state.newConversationRefreshId, "new");
 assert.equal(typeof timers.get(pendingRefreshTimer), "function");
 
 pageBridgeApi.state.conversationStore = {
   getState: () => ({
     byId: {
-      "newly-created": {
-        conversationId: "newly-created",
+      new: {
+        conversationId: "new",
         createTime: "2026-07-14T12:00:00.000Z",
         modifyTime: "2026-07-14T12:00:01.000Z",
         starred: false,
+        temporary: false,
+        title: "Invalid temporary duplicate"
+      }
+    },
+    fetchGetConversation() {}
+  })
+};
+const temporaryStatus = pageBridgeApi.getNavigationStatus();
+assert.equal(temporaryStatus.activeConversation?.title, "Invalid temporary duplicate");
+assert.equal(testApi.syncActiveConversation(), false);
+assert.equal(testApi.state.conversations.has("new"), false);
+
+fakeLocation.pathname = `/c/${persistedNewConversationId}`;
+fakeLocation.href = `https://grok.com/c/${persistedNewConversationId}`;
+pageBridgeApi.state.conversationStore = {
+  getState: () => ({
+    byId: {
+      [persistedNewConversationId]: {
+        conversationId: persistedNewConversationId,
+        createTime: "2026-07-14T12:00:00.000Z",
+        modifyTime: "2026-07-14T12:00:01.000Z",
+        starred: false,
+        temporary: false,
         title: "Freshly created conversation"
       }
     },
@@ -369,10 +397,10 @@ assert.equal(activeStatus.activeConversation?.title, "Freshly created conversati
 const synchronizedNewConversation = testApi.syncActiveConversation();
 assert.equal(synchronizedNewConversation, true);
 assert.equal(
-  testApi.state.conversations.get("newly-created").title,
+  testApi.state.conversations.get(persistedNewConversationId).title,
   "Freshly created conversation"
 );
-assert.equal(testApi.state.conversations.get("newly-created").fromApi, true);
+assert.equal(testApi.state.conversations.get(persistedNewConversationId).fromApi, true);
 assert.equal(testApi.state.newConversationRefreshId, "");
 assert.equal(testApi.state.newConversationRefreshTimer, 0);
 assert.equal(timers.has(pendingRefreshTimer), false);
@@ -440,10 +468,12 @@ assert.deepEqual(bridgeChanges[1].removedConversationIds, ["tracked"]);
 assert.equal(root.getAttribute("data-grok-show-all-chats-conversation-change"), null);
 
 async function testNewConversationApiRefresh() {
-  fakeLocation.pathname = "/c/api-created";
-  fakeLocation.href = "https://grok.com/c/api-created";
+  const conversationId = "22222222-2222-4222-8222-222222222222";
+  fakeLocation.pathname = `/c/${conversationId}`;
+  fakeLocation.href = `https://grok.com/c/${conversationId}`;
   pageBridgeApi.state.conversationStore = null;
-  assert.equal(testApi.syncActiveConversation(), true);
+  assert.equal(testApi.syncActiveConversation(), false);
+  assert.equal(testApi.state.conversations.has(conversationId), false);
 
   const scheduledRefreshTimer = testApi.state.newConversationRefreshTimer;
   window.clearTimeout(scheduledRefreshTimer);
@@ -454,7 +484,7 @@ async function testNewConversationApiRefresh() {
     json: async () => ({
       conversations: [
         {
-          conversationId: "api-created",
+          conversationId,
           createTime: "2026-07-14T13:00:00.000Z",
           modifyTime: "2026-07-14T13:00:02.000Z",
           starred: false,
@@ -466,27 +496,89 @@ async function testNewConversationApiRefresh() {
   });
 
   try {
-    await testApi.refreshNewConversationFromApi("api-created");
+    await testApi.refreshNewConversationFromApi(conversationId);
   } finally {
     globalThis.fetch = originalFetch;
   }
 
   assert.equal(
-    testApi.state.conversations.get("api-created").title,
+    testApi.state.conversations.get(conversationId).title,
     "Conversation returned by the history API"
   );
-  assert.equal(testApi.state.conversations.get("api-created").fromApi, true);
+  assert.equal(testApi.state.conversations.get(conversationId).fromApi, true);
   assert.equal(testApi.state.newConversationRefreshId, "");
   assert.equal(testApi.state.newConversationRefreshTimer, 0);
 }
 
 async function testRealtimeConversationSync() {
+  const eventCreatedConversationId = "33333333-3333-4333-8333-333333333333";
+  const originalConfirm = window.confirm;
   const originalRequestAnimationFrame = window.requestAnimationFrame;
   const originalFetch = globalThis.fetch;
   window.requestAnimationFrame = () => 1;
   testApi.state.listScrollTop = 777;
 
   try {
+    assert.equal(testApi.mergeConversation({
+      conversationId: "legacy-temporary-id",
+      fromApi: false,
+      href: "/c/legacy-temporary-id",
+      source: "route",
+      title: "Ghost conversation"
+    }), false);
+    testApi.state.conversations.set("legacy-temporary-id", {
+      conversationId: "legacy-temporary-id",
+      fromApi: false,
+      href: "/c/legacy-temporary-id",
+      seenInApi: false,
+      sequence: 9999,
+      source: "route",
+      title: "Ghost conversation"
+    });
+    assert.equal(
+      testApi.sortedConversations().some(
+        (conversation) => conversation.conversationId === "legacy-temporary-id"
+      ),
+      false
+    );
+    let ghostDeleteRequests = 0;
+    window.confirm = () => true;
+    globalThis.fetch = async () => {
+      ghostDeleteRequests += 1;
+      throw new Error("A ghost deletion must remain local.");
+    };
+    await testApi.deleteConversation("legacy-temporary-id");
+    assert.equal(ghostDeleteRequests, 0);
+    assert.equal(testApi.state.conversations.has("legacy-temporary-id"), false);
+    assert.equal(testApi.state.suppressedConversationIds.has("legacy-temporary-id"), true);
+    globalThis.fetch = originalFetch;
+
+    testApi.applyConversationChangePayload({
+      conversations: [{
+        conversationId: "store-temporary-id",
+        temporary: false,
+        title: "Unconfirmed store duplicate"
+      }],
+      source: "store"
+    }, { broadcast: false });
+    assert.equal(testApi.state.conversations.has("store-temporary-id"), false);
+    assert.equal(testApi.state.realtimeConversationIds.has("store-temporary-id"), false);
+
+    testApi.applyConversationChangePayload({
+      mutation: {
+        conversationId: "network-temporary-id",
+        method: "PUT",
+        path: "/rest/app-chat/conversations/network-temporary-id",
+        status: 200
+      },
+      source: "network"
+    }, { broadcast: false });
+    assert.equal(testApi.state.realtimeConversationIds.has("network-temporary-id"), false);
+    assert.equal(testApi.state.realtimeNeedsRecent, true);
+    window.clearTimeout(testApi.state.realtimeRefreshTimer);
+    testApi.state.realtimeRefreshTimer = 0;
+    testApi.state.realtimeNeedsRecent = false;
+
     testApi.mergeConversation({
       conversationId: "live-change",
       createTime: "2026-07-14T15:00:00.000Z",
@@ -534,7 +626,7 @@ async function testRealtimeConversationSync() {
 
     testApi.applyConversationChangePayload({
       conversations: [{
-        conversationId: "event-created",
+        conversationId: eventCreatedConversationId,
         modifyTime: "2026-07-14T15:02:00.000Z",
         starred: false,
         title: "Created from a store event"
@@ -542,48 +634,48 @@ async function testRealtimeConversationSync() {
       source: "store"
     }, { broadcast: false });
     assert.equal(
-      testApi.state.conversations.get("event-created").title,
+      testApi.state.conversations.get(eventCreatedConversationId).title,
       "Created from a store event"
     );
 
     testApi.applyConversationChangePayload({
       conversations: [{
-        conversationId: "event-created",
+        conversationId: eventCreatedConversationId,
         temporary: true,
         title: "Created from a store event"
       }],
       source: "store"
     }, { broadcast: false });
-    assert.equal(testApi.state.conversations.has("event-created"), false);
+    assert.equal(testApi.state.conversations.has(eventCreatedConversationId), false);
     testApi.applyConversationChangePayload({
       conversations: [{
-        conversationId: "event-created",
+        conversationId: eventCreatedConversationId,
         temporary: false,
         title: "Saved conversation"
       }],
       source: "store"
     }, { broadcast: false });
-    assert.equal(testApi.state.conversations.has("event-created"), true);
+    assert.equal(testApi.state.conversations.has(eventCreatedConversationId), true);
 
     testApi.applyConversationChangePayload({
       mutation: {
-        conversationId: "event-created",
+        conversationId: eventCreatedConversationId,
         method: "DELETE",
-        path: "/rest/app-chat/conversations/soft/event-created",
+        path: `/rest/app-chat/conversations/soft/${eventCreatedConversationId}`,
         status: 200
       },
       source: "network"
     }, { broadcast: false });
-    assert.equal(testApi.state.conversations.has("event-created"), false);
-    assert.equal(testApi.state.suppressedConversationIds.has("event-created"), true);
+    assert.equal(testApi.state.conversations.has(eventCreatedConversationId), false);
+    assert.equal(testApi.state.suppressedConversationIds.has(eventCreatedConversationId), true);
     assert.equal(testApi.mergeConversation({
-      conversationId: "event-created",
+      conversationId: eventCreatedConversationId,
       fromApi: false,
-      href: "/c/event-created",
+      href: `/c/${eventCreatedConversationId}`,
       source: "dom",
       title: "Stale native row"
     }), false);
-    assert.equal(testApi.state.conversations.has("event-created"), false);
+    assert.equal(testApi.state.conversations.has(eventCreatedConversationId), false);
 
     testApi.mergeConversation({
       conversationId: "store-removed",
@@ -623,6 +715,11 @@ async function testRealtimeConversationSync() {
     assert.equal(testApi.state.suppressedConversationIds.has("snapshot-removed"), true);
   } finally {
     globalThis.fetch = originalFetch;
+    if (originalConfirm === undefined) {
+      delete window.confirm;
+    } else {
+      window.confirm = originalConfirm;
+    }
     window.requestAnimationFrame = originalRequestAnimationFrame;
   }
 }
