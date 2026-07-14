@@ -74,7 +74,7 @@ Never put test credentials in this repository, the public listing, screenshots, 
 
 - Use the packaged `icons/icon128.png` as the 128 x 128 store icon. All packaged sizes are generated from the project's `logo.png` master artwork.
 - Upload the 1280 x 800 PNG files from `store-assets/screenshots/`. They are generated from a deterministic fixture that runs the extension's actual sidebar code with fictional data.
-- Provide the required 440 x 280 small promotional image.
+- Upload `store-assets/promotional/promo-small-440x280.png` as the required small promotional image and `store-assets/promotional/promo-marquee-1400x560.png` as the optional marquee image. Both are text-free 24-bit PNG files without an alpha channel.
 - Keep the product name, description, screenshots, and promotional images clearly unofficial and consistent with the extension's actual behavior.
 
 Create screenshots with a dedicated test account. Do not expose an email address, access token, personal chat title, explicit or sexual content, private conversation, or other sensitive information. The earlier development screenshots are not suitable for the store listing.
