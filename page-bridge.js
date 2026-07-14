@@ -529,6 +529,41 @@
     return { method: "none", started: false };
   }
 
+  function getConversationSummary(conversationId) {
+    if (!conversationId) {
+      return null;
+    }
+
+    try {
+      const byId = getStoreState(state.conversationStore)?.byId;
+      const conversation = byId instanceof Map ? byId.get(conversationId) : byId?.[conversationId];
+      if (!conversation || typeof conversation !== "object") {
+        return null;
+      }
+
+      const summary = {
+        conversationId,
+        createTime: String(
+          conversation.createTime || conversation.createdAt || conversation.create_time || ""
+        ),
+        modifyTime: String(
+          conversation.modifyTime ||
+          conversation.updateTime ||
+          conversation.updatedAt ||
+          conversation.modify_time ||
+          ""
+        ),
+        title: String(conversation.title || conversation.conversationName || conversation.name || "")
+      };
+      if (Object.prototype.hasOwnProperty.call(conversation, "starred")) {
+        summary.starred = Boolean(conversation.starred);
+      }
+      return summary;
+    } catch {
+      return null;
+    }
+  }
+
   function getNavigationStatus() {
     captureGrokStores();
     const pathConversationId = extractConversationId(location.pathname);
@@ -544,9 +579,11 @@
       routeConversationId,
       pathConversationId
     ].filter((value, index, values) => value && values.indexOf(value) === index);
+    const activeConversationId = pathConversationId || routeConversationId || chatPageConversationId;
 
     return {
-      activeConversationId: pathConversationId || routeConversationId || chatPageConversationId,
+      activeConversation: getConversationSummary(activeConversationId),
+      activeConversationId,
       activeConversationIds
     };
   }

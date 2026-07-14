@@ -23,9 +23,10 @@ function Assert-ExactValues {
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $manifestPath = Join-Path $projectRoot "manifest.json"
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+$expectedVersion = "1.0.1"
 
-if ([string]$manifest.version -ne "1.0.0") {
-  throw "manifest.json version must remain 1.0.0 unless the user explicitly requests a change."
+if ([string]$manifest.version -ne $expectedVersion) {
+  throw "manifest.json version must remain $expectedVersion unless the user explicitly requests a change."
 }
 
 $expectedHomepage = "https://github.com/communism420/All-Chats-Sidebar-for-Grok"
@@ -120,7 +121,7 @@ foreach ($locale in $requiredLocales) {
 }
 
 $outputRoot = [System.IO.Path]::GetFullPath($OutputDirectory)
-$archivePath = Join-Path $outputRoot "grok-show-all-chats-1.0.0.zip"
+$archivePath = Join-Path $outputRoot "grok-show-all-chats-$expectedVersion.zip"
 $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
 $stagingRoot = Join-Path $tempRoot ("grok-show-all-chats-" + [guid]::NewGuid().ToString("N"))
 $stagingRoot = [System.IO.Path]::GetFullPath($stagingRoot)

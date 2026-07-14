@@ -9,8 +9,9 @@ Push-Location $projectRoot
 
 try {
   $manifest = Get-Content -LiteralPath "manifest.json" -Raw | ConvertFrom-Json
-  if ([string]$manifest.version -ne "1.0.0") {
-    throw "manifest.json version must remain 1.0.0."
+  $expectedVersion = "1.0.1"
+  if ([string]$manifest.version -ne $expectedVersion) {
+    throw "manifest.json version must remain $expectedVersion."
   }
 
   foreach ($script in @("page-bridge.js", "content.js", "i18n.js", "settings-bridge.js", "popup.js")) {

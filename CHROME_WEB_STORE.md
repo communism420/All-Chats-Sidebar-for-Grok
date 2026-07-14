@@ -10,7 +10,7 @@ Run:
 .\scripts\package.ps1
 ```
 
-Upload `dist/grok-show-all-chats-1.0.0.zip`. The script verifies the fixed version, permissions, host scope, content security policy, required locales, and package contents before creating the ZIP.
+Upload `dist/grok-show-all-chats-1.0.1.zip`. The script verifies the fixed version, permissions, host scope, content security policy, required locales, and package contents before creating the ZIP.
 
 ## Suggested listing
 
@@ -87,4 +87,4 @@ Create screenshots with a dedicated test account. Do not expose an email address
 - Load the unpacked extension from the exact source being packaged and test it on current Chrome.
 - Inspect the ZIP and confirm that `manifest.json` is at its root.
 - Upload only the ZIP produced by `scripts/package.ps1`.
-- Do not change version `1.0.0` without the user's explicit permission.
+- Do not change version `1.0.1` without the user's explicit permission.

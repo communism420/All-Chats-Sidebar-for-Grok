@@ -6,7 +6,7 @@ Source code: https://github.com/communism420/All-Chats-Sidebar-for-Grok
 
 Website: https://communism420.github.io/All-Chats-Sidebar-for-Grok/
 
-Current version: `1.0.0`. Do not change it without the project owner's explicit permission.
+Current version: `1.0.1`. Do not change it without the project owner's explicit permission.
 
 ## Installation
 
@@ -28,6 +28,7 @@ The extension supports English, Spanish, German, Brazilian Portuguese, Russian, 
 - It does not activate **Show all** or open Grok's separate chat-history menu.
 - It requests the chat history from `GET /rest/app-chat/conversations` using the browser's existing signed-in session.
 - Paginated responses are added to one continuous list inside the native scrollable sidebar area.
+- Newly created chats appear as soon as Grok assigns a conversation ID, and their generated titles synchronize without a page reload.
 - Pinned chats appear in a separate group above the remaining history, while both groups stay in the same list and share one scrollbar.
 - The sidebar width can be changed by dragging its right edge along the full sidebar height. The selected width is saved for the current browser. Double-click the edge, or press `Home` while it is focused, to restore Grok's default width.
 - Navigation uses Grok's in-page SPA router, keeps the chat-list scroll position fixed, opens the canonical `/c/...` route, and preloads data on pointer hover, focus, or press. Chat selection never falls back to a full-page reload.
@@ -68,4 +69,4 @@ Then build the store package:
 .\scripts\package.ps1
 ```
 
-The archive is created at `dist/grok-show-all-chats-1.0.0.zip`. See [CHROME_WEB_STORE.md](CHROME_WEB_STORE.md) for listing, privacy-practices, and reviewer-instructions guidance.
+The archive is created at `dist/grok-show-all-chats-1.0.1.zip`. See [CHROME_WEB_STORE.md](CHROME_WEB_STORE.md) for listing, privacy-practices, and reviewer-instructions guidance.

@@ -144,7 +144,7 @@ const pageBridgeMarker = "  document.addEventListener(REQUEST_EVENT, handleReque
 assert.ok(pageBridgeSource.includes(pageBridgeMarker), "Page bridge test hook marker is missing");
 const instrumentedPageBridgeSource = pageBridgeSource.replace(
   pageBridgeMarker,
-  `  globalThis.__pageBridgeTestApi = { navigateToConversation, state };
+  `  globalThis.__pageBridgeTestApi = { getNavigationStatus, navigateToConversation, state };
 ${pageBridgeMarker}`
 );
 vm.runInThisContext(instrumentedPageBridgeSource, { filename: "page-bridge.js" });
@@ -158,9 +158,11 @@ const instrumentedContentSource = contentSource.replace(
     beginNavigationScrollPreservation,
     getPageBridgeNavigationStatus,
     handleListScroll,
+    refreshNewConversationFromApi,
     releaseNavigationScrollPreservation,
     settleNavigationScrollPreservation,
     state,
+    syncActiveConversation,
     tryPageBridgeNavigation
   };
   return;\n\n${observerMarker}`
@@ -272,4 +274,91 @@ assert.equal(scrollHost.scrollTop, 624);
 assert.equal(testApi.state.navigationScrollTarget, "");
 assert.equal(testApi.state.navigationScrollSettling, false);
 
-console.log("Navigation bridge and scroll-preservation regression tests passed.");
+fakeLocation.pathname = "/c/newly-created";
+fakeLocation.href = "https://grok.com/c/newly-created";
+pageBridgeApi.state.conversationStore = null;
+const insertedNewConversation = testApi.syncActiveConversation();
+const pendingRefreshTimer = testApi.state.newConversationRefreshTimer;
+assert.equal(insertedNewConversation, true);
+assert.equal(testApi.state.conversations.has("newly-created"), true);
+assert.equal(testApi.state.conversations.get("newly-created").title, "");
+assert.equal(testApi.state.conversations.get("newly-created").fromApi, false);
+assert.equal(testApi.state.newConversationRefreshId, "newly-created");
+assert.equal(typeof timers.get(pendingRefreshTimer), "function");
+
+pageBridgeApi.state.conversationStore = {
+  getState: () => ({
+    byId: {
+      "newly-created": {
+        conversationId: "newly-created",
+        createTime: "2026-07-14T12:00:00.000Z",
+        modifyTime: "2026-07-14T12:00:01.000Z",
+        starred: false,
+        title: "Freshly created conversation"
+      }
+    },
+    fetchGetConversation() {}
+  })
+};
+const activeStatus = pageBridgeApi.getNavigationStatus();
+assert.equal(activeStatus.activeConversation?.title, "Freshly created conversation");
+const synchronizedNewConversation = testApi.syncActiveConversation();
+assert.equal(synchronizedNewConversation, true);
+assert.equal(
+  testApi.state.conversations.get("newly-created").title,
+  "Freshly created conversation"
+);
+assert.equal(testApi.state.conversations.get("newly-created").fromApi, true);
+assert.equal(testApi.state.newConversationRefreshId, "");
+assert.equal(testApi.state.newConversationRefreshTimer, 0);
+assert.equal(timers.has(pendingRefreshTimer), false);
+
+async function testNewConversationApiRefresh() {
+  fakeLocation.pathname = "/c/api-created";
+  fakeLocation.href = "https://grok.com/c/api-created";
+  pageBridgeApi.state.conversationStore = null;
+  assert.equal(testApi.syncActiveConversation(), true);
+
+  const scheduledRefreshTimer = testApi.state.newConversationRefreshTimer;
+  window.clearTimeout(scheduledRefreshTimer);
+  testApi.state.newConversationRefreshTimer = 0;
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    json: async () => ({
+      conversations: [
+        {
+          conversationId: "api-created",
+          createTime: "2026-07-14T13:00:00.000Z",
+          modifyTime: "2026-07-14T13:00:02.000Z",
+          starred: false,
+          title: "Conversation returned by the history API"
+        }
+      ]
+    }),
+    ok: true
+  });
+
+  try {
+    await testApi.refreshNewConversationFromApi("api-created");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(
+    testApi.state.conversations.get("api-created").title,
+    "Conversation returned by the history API"
+  );
+  assert.equal(testApi.state.conversations.get("api-created").fromApi, true);
+  assert.equal(testApi.state.newConversationRefreshId, "");
+  assert.equal(testApi.state.newConversationRefreshTimer, 0);
+}
+
+void testNewConversationApiRefresh()
+  .then(() => {
+    console.log("Navigation, scroll preservation, and new-conversation sync tests passed.");
+  })
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });

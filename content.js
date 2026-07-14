@@ -6,6 +6,7 @@
   const MAX_PAGES_PER_LOAD = 50;
   const MUTATION_THROTTLE_MS = 250;
   const REFRESH_INTERVAL_MS = 120000;
+  const NEW_CONVERSATION_REFRESH_DELAYS_MS = [0, 500, 1500, 3000, 7000, 15000];
   const NAVIGATION_RETRY_DELAY_MS = 120;
   const NAVIGATION_CONFIRM_DELAY_MS = 450;
   const NAVIGATION_RETRY_LIMIT = 16;
@@ -134,6 +135,10 @@
     menuButton: null,
     menuConversationId: "",
     nativeHistory: null,
+    newConversationRefreshAttempt: 0,
+    newConversationRefreshId: "",
+    newConversationRefreshLoading: false,
+    newConversationRefreshTimer: 0,
     navigationPendingTarget: "",
     navigationRetryTimer: 0,
     navigationScrollReleaseTimer: 0,
@@ -718,6 +723,35 @@
     let changed = false;
     for (const conversation of conversations) {
       changed = mergeConversation(conversation) || changed;
+    }
+    return changed;
+  }
+
+  function conversationRenderKey(conversation) {
+    if (!conversation) {
+      return "";
+    }
+
+    return JSON.stringify([
+      conversation.title || "",
+      conversation.modifyTime || "",
+      conversation.createTime || "",
+      conversation.href || "",
+      Boolean(conversation.starred)
+    ]);
+  }
+
+  function mergeConversationForRender(conversation) {
+    const before = conversationRenderKey(getConversationById(conversation?.conversationId));
+    mergeConversation(conversation);
+    const after = conversationRenderKey(getConversationById(conversation?.conversationId));
+    return before !== after;
+  }
+
+  function mergeConversationsForRender(conversations) {
+    let changed = false;
+    for (const conversation of conversations) {
+      changed = mergeConversationForRender(conversation) || changed;
     }
     return changed;
   }
@@ -2033,10 +2067,12 @@
     return "";
   }
 
+  function getActiveConversationIdFromStatus(status) {
+    return String(status?.activeConversationId || "");
+  }
+
   function getCurrentConversationId() {
-    const bridgeConversationId = String(
-      getPageBridgeNavigationStatus()?.activeConversationId || ""
-    );
+    const bridgeConversationId = getActiveConversationIdFromStatus(getPageBridgeNavigationStatus());
     if (bridgeConversationId) {
       return bridgeConversationId;
     }
@@ -2058,6 +2094,138 @@
 
     const chatPageConversationId = getStoreState(state.chatPageStore)?.conversationId;
     return chatPageConversationId ? String(chatPageConversationId) : "";
+  }
+
+  function isCanonicalActiveConversation(status, conversationId) {
+    if (!conversationId) {
+      return false;
+    }
+
+    const bridgeConversationIds = Array.isArray(status?.activeConversationIds)
+      ? status.activeConversationIds.map(String)
+      : [];
+    const pathConversationId = extractConversationIdFromPath(location.pathname);
+    const routeConversationId = getConversationIdFromRoute(
+      getStoreState(state.routingStore)?.route
+    );
+    return (
+      bridgeConversationIds.includes(conversationId) ||
+      pathConversationId === conversationId ||
+      routeConversationId === conversationId
+    );
+  }
+
+  function getActiveConversationCandidate(status, conversationId) {
+    const bridgeConversation = status?.activeConversation;
+    const bridgeConversationId = normalizeText(
+      bridgeConversation?.conversationId || bridgeConversation?.conversation_id || bridgeConversation?.id
+    );
+    const rawConversation =
+      bridgeConversation && (!bridgeConversationId || bridgeConversationId === conversationId)
+        ? bridgeConversation
+        : getStoredConversation(conversationId);
+    if (!rawConversation || typeof rawConversation !== "object") {
+      return null;
+    }
+
+    try {
+      const conversation = conversationFromApi({ ...rawConversation, conversationId });
+      return conversation ? { ...conversation, source: "store" } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function clearNewConversationRefresh(conversationId = "") {
+    if (conversationId && state.newConversationRefreshId !== conversationId) {
+      return;
+    }
+    if (state.newConversationRefreshTimer) {
+      window.clearTimeout(state.newConversationRefreshTimer);
+      state.newConversationRefreshTimer = 0;
+    }
+    state.newConversationRefreshAttempt = 0;
+    state.newConversationRefreshId = "";
+  }
+
+  function queueNewConversationRefresh(conversationId) {
+    if (!conversationId) {
+      return;
+    }
+    if (state.newConversationRefreshId !== conversationId) {
+      clearNewConversationRefresh();
+      state.newConversationRefreshId = conversationId;
+    }
+    if (
+      state.newConversationRefreshLoading ||
+      state.newConversationRefreshTimer ||
+      state.newConversationRefreshAttempt >= NEW_CONVERSATION_REFRESH_DELAYS_MS.length
+    ) {
+      return;
+    }
+
+    const delay = NEW_CONVERSATION_REFRESH_DELAYS_MS[state.newConversationRefreshAttempt];
+    state.newConversationRefreshAttempt += 1;
+    state.newConversationRefreshTimer = window.setTimeout(() => {
+      state.newConversationRefreshTimer = 0;
+      void refreshNewConversationFromApi(conversationId);
+    }, delay);
+  }
+
+  function syncActiveConversation() {
+    const status = getPageBridgeNavigationStatus();
+    const bridgeConversationId = getActiveConversationIdFromStatus(status);
+    const pathConversationId = extractConversationIdFromPath(location.pathname);
+    const routeConversationId = getConversationIdFromRoute(
+      getStoreState(state.routingStore)?.route
+    );
+    const conversationId = bridgeConversationId || pathConversationId || routeConversationId;
+    if (!conversationId) {
+      clearNewConversationRefresh();
+      return false;
+    }
+    if (state.newConversationRefreshId && state.newConversationRefreshId !== conversationId) {
+      clearNewConversationRefresh();
+    }
+
+    const existingBefore = getConversationById(conversationId);
+    const candidate = getActiveConversationCandidate(status, conversationId);
+    const isCanonical = isCanonicalActiveConversation(status, conversationId);
+    if (!existingBefore && !candidate && !isCanonical) {
+      return false;
+    }
+
+    let changed = false;
+    if (candidate) {
+      changed = mergeConversationForRender(candidate) || changed;
+    }
+
+    let current = getConversationById(conversationId);
+    if (!current) {
+      const timestamp = new Date().toISOString();
+      changed = mergeConversationForRender({
+        conversationId,
+        createTime: timestamp,
+        fromApi: false,
+        href: hrefForConversationId(conversationId),
+        modifyTime: timestamp,
+        source: "route",
+        title: ""
+      }) || changed;
+      current = getConversationById(conversationId);
+    }
+
+    if (current?.fromApi && current.title) {
+      clearNewConversationRefresh(conversationId);
+    } else if (
+      !existingBefore ||
+      state.newConversationRefreshId === conversationId ||
+      (state.apiDone && isCanonical && !current?.fromApi)
+    ) {
+      queueNewConversationRefresh(conversationId);
+    }
+
+    return changed;
   }
 
   function setChatPageConversationId(conversationId) {
@@ -2585,6 +2753,47 @@
     return response.json();
   }
 
+  async function refreshNewConversationFromApi(conversationId) {
+    if (!conversationId || state.newConversationRefreshId !== conversationId) {
+      return;
+    }
+    if (state.apiLoading || state.newConversationRefreshLoading) {
+      queueNewConversationRefresh(conversationId);
+      return;
+    }
+
+    state.newConversationRefreshLoading = true;
+    let resolved = false;
+    try {
+      const data = await fetchConversationPage("");
+      const conversations = getConversationListFromResponse(data)
+        .map(conversationFromApi)
+        .filter(Boolean);
+      if (mergeConversationsForRender(conversations)) {
+        markRenderDirty();
+      }
+
+      const refreshedConversation = conversations.find(
+        (conversation) => conversation.conversationId === conversationId
+      );
+      if (
+        state.newConversationRefreshId === conversationId &&
+        refreshedConversation &&
+        getConversationById(conversationId)?.title
+      ) {
+        clearNewConversationRefresh(conversationId);
+        resolved = true;
+      }
+    } catch {
+      // The bounded retry sequence handles temporary API propagation delays.
+    } finally {
+      state.newConversationRefreshLoading = false;
+      if (!resolved && state.newConversationRefreshId) {
+        queueNewConversationRefresh(state.newConversationRefreshId);
+      }
+    }
+  }
+
   async function loadConversationsFromApi({ reset = false } = {}) {
     if (state.apiLoading) {
       return;
@@ -2657,6 +2866,9 @@
     state.runInProgress = true;
     try {
       maybeCaptureGrokStores();
+      if (syncActiveConversation()) {
+        state.lastRenderSignature = "";
+      }
 
       const nextLocationKey = getLocationKey();
       if (nextLocationKey !== state.currentLocationKey) {
