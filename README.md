@@ -8,6 +8,8 @@ Website: https://communism420.github.io/All-Chats-Sidebar-for-Grok/
 
 Current version: `1.0.1`. Do not change it without the project owner's explicit permission.
 
+See [CHANGELOG.md](CHANGELOG.md) for release history.
+
 ## Installation
 
 1. Open `chrome://extensions` in a Chromium-based browser.
