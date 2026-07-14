@@ -40,6 +40,13 @@ try {
 
   foreach ($htmlFile in Get-ChildItem -LiteralPath "docs" -Filter "*.html") {
     $html = Get-Content -LiteralPath $htmlFile.FullName -Raw
+    $isGoogleVerificationFile =
+      $htmlFile.Name -match '^google[a-z0-9]+\.html$' -and
+      $html.Trim() -eq "google-site-verification: $($htmlFile.Name)"
+    if ($isGoogleVerificationFile) {
+      continue
+    }
+
     if ($html -notmatch '<html\s+lang="en">') {
       throw "$($htmlFile.Name) must declare English as the document language."
     }
