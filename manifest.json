@@ -43,6 +43,7 @@
         "https://grok.com/*"
       ],
       "js": [
+        "webext.js",
         "i18n.js",
         "settings-bridge.js",
         "content.js"

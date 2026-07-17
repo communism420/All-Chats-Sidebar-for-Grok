@@ -2,6 +2,7 @@ Version 1.0.1
 
 Changes since version 1.0.0:
 
+- Added support for Firefox Desktop 142 and newer, with a dedicated Mozilla Add-ons package built from the same source.
 - New chats and generated titles now appear in the sidebar immediately, without reloading Grok.
 - Chat creation, renaming, pinning, unpinning, deletion, and ordering now update in real time.
 - Chat changes now synchronize across open Grok tabs and after returning to an inactive tab.

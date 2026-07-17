@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta
       name="description"
-      content="Privacy Policy for the All Chats Sidebar for Grok Chromium extension."
+      content="Privacy Policy for the All Chats Sidebar for Grok extension on Chromium and Firefox."
     >
     <meta name="theme-color" content="#080a0c">
     <title>Privacy Policy | All Chats Sidebar for Grok</title>
@@ -35,7 +35,7 @@
         <header class="policy-header">
           <p class="eyebrow">All Chats Sidebar for Grok</p>
           <h1>Privacy Policy</h1>
-          <p class="effective-date">Effective date: July 14, 2026</p>
+          <p class="effective-date">Effective date: July 17, 2026</p>
         </header>
 
         <div class="policy-summary">
@@ -117,17 +117,21 @@
         </section>
 
         <section aria-labelledby="storage-heading">
-          <h2 id="storage-heading">Storage and retention</h2>
+          <h2 id="storage-heading">Browser settings storage and retention</h2>
           <ul>
             <li>
               Conversation metadata is kept only in the memory of the active Grok page and is discarded when the page is
               closed or reloaded.
             </li>
             <li>
-              The selected interface language is stored with <code>chrome.storage.sync</code>. Depending on the user's Chrome
-              settings, Google Chrome may synchronize that preference through the user's browser profile.
+              In Chromium-based browsers, the selected interface language is stored in synchronized extension storage and
+              may be synchronized through the user's browser profile.
             </li>
-            <li>The selected sidebar width is stored locally with <code>chrome.storage.local</code>.</li>
+            <li>
+              In Firefox, the selected interface language is stored only in local extension storage and is not sent through
+              Firefox Sync by the extension.
+            </li>
+            <li>The selected sidebar width is stored in local extension storage in both browser families.</li>
             <li>Settings remain until the user clears extension data or uninstalls the extension.</li>
           </ul>
         </section>
@@ -148,11 +152,25 @@
           </p>
         </section>
 
+        <section aria-labelledby="firefox-disclosure-heading">
+          <h2 id="firefox-disclosure-heading">Firefox Add-ons data disclosure</h2>
+          <p>
+            The Firefox package declares <code>personalCommunications</code> and <code>websiteContent</code> as required data
+            categories because the extension handles Grok chat titles and metadata, reads the Grok interface, and sends the
+            direct Grok requests necessary for its primary function. This declaration does not mean the developer receives
+            the data.
+          </p>
+          <p>
+            The Firefox package declares no optional technical or interaction data collection. It has no telemetry,
+            analytics, advertising, profiling, or developer-operated data service.
+          </p>
+        </section>
+
         <section aria-labelledby="changes-heading">
           <h2 id="changes-heading">Changes to this policy</h2>
           <p>
             If this policy changes, the updated policy will be published at this same public URL with a revised effective
-            date. Material changes to data handling will also be disclosed in the extension and its Chrome Web Store listing
+            date. Material changes to data handling will also be disclosed in the extension and its applicable store listings
             as required.
           </p>
         </section>
@@ -161,7 +179,7 @@
           <h2 id="contact-heading">Contact</h2>
           <p>
             Questions about this policy can be submitted through the repository's public issue tracker or the developer
-            support contact shown on the extension's Chrome Web Store listing.
+            support contact shown on the extension's store listing.
           </p>
           <p>
             <a href="https://github.com/communism420/All-Chats-Sidebar-for-Grok/issues">

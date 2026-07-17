@@ -1,6 +1,6 @@
 # Chrome Web Store Assets
 
-The screenshots in `screenshots/` use fictional, non-sensitive chat titles and a deterministic local Grok-style fixture. The fixture loads the repository's actual `content.js`, `i18n.js`, and `content.css`, so the custom sidebar, chat grouping, menu, and resize behavior shown in the images come from the extension code.
+The screenshots in `screenshots/` use fictional, non-sensitive chat titles and a deterministic local Grok-style fixture. The fixture loads the repository's actual `webext.js`, `content.js`, `i18n.js`, and `content.css`, so the custom sidebar, chat grouping, menu, and resize behavior shown in the images come from the extension code.
 
 Each screenshot is a 1280 x 800 PNG suitable for the Chrome Web Store listing. The asset fixtures and generators are development-only files and are not included in the extension ZIP.
 

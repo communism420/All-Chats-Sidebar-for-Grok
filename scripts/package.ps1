@@ -1,5 +1,7 @@
 [CmdletBinding()]
 param(
+  [ValidateSet("Chromium", "Firefox")]
+  [string]$Target = "Chromium",
   [string]$OutputDirectory = (Join-Path $PSScriptRoot "..\dist")
 )
 
@@ -20,9 +22,69 @@ function Assert-ExactValues {
   }
 }
 
+function New-DeterministicArchive {
+  param(
+    [Parameter(Mandatory)] [string]$SourceDirectory,
+    [Parameter(Mandatory)] [string]$DestinationPath
+  )
+
+  Add-Type -AssemblyName System.IO.Compression
+  $sourceRoot = [System.IO.Path]::GetFullPath($SourceDirectory)
+  $destination = [System.IO.Path]::GetFullPath($DestinationPath)
+  $fixedTimestamp = [System.DateTimeOffset]::new(
+    2000,
+    1,
+    1,
+    0,
+    0,
+    0,
+    [System.TimeSpan]::Zero
+  )
+  $files = @(
+    Get-ChildItem -LiteralPath $sourceRoot -Recurse -File |
+      Sort-Object { [System.IO.Path]::GetRelativePath($sourceRoot, $_.FullName) }
+  )
+
+  $outputStream = [System.IO.File]::Open(
+    $destination,
+    [System.IO.FileMode]::Create,
+    [System.IO.FileAccess]::Write,
+    [System.IO.FileShare]::None
+  )
+  try {
+    $archive = [System.IO.Compression.ZipArchive]::new(
+      $outputStream,
+      [System.IO.Compression.ZipArchiveMode]::Create,
+      $false
+    )
+    try {
+      foreach ($file in $files) {
+        $relativePath = [System.IO.Path]::GetRelativePath($sourceRoot, $file.FullName).Replace("\", "/")
+        $entry = $archive.CreateEntry($relativePath, [System.IO.Compression.CompressionLevel]::Optimal)
+        $entry.LastWriteTime = $fixedTimestamp
+        $entry.ExternalAttributes = 0
+
+        $inputStream = [System.IO.File]::OpenRead($file.FullName)
+        $entryStream = $entry.Open()
+        try {
+          $inputStream.CopyTo($entryStream)
+        } finally {
+          $entryStream.Dispose()
+          $inputStream.Dispose()
+        }
+      }
+    } finally {
+      $archive.Dispose()
+    }
+  } finally {
+    $outputStream.Dispose()
+  }
+}
+
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $manifestPath = Join-Path $projectRoot "manifest.json"
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+$targetName = $Target.ToLowerInvariant()
 $expectedVersion = "1.0.1"
 
 if ([string]$manifest.version -ne $expectedVersion) {
@@ -32,6 +94,10 @@ if ([string]$manifest.version -ne $expectedVersion) {
 $expectedHomepage = "https://github.com/communism420/All-Chats-Sidebar-for-Grok"
 if ([string]$manifest.homepage_url -ne $expectedHomepage) {
   throw "manifest.json homepage_url must point to the public source repository."
+}
+
+if ($manifest.PSObject.Properties.Name -contains "browser_specific_settings") {
+  throw "The shared Chromium manifest must not contain Firefox-only settings."
 }
 
 Assert-ExactValues -Actual @($manifest.permissions) -Expected @("storage") -Label "permissions"
@@ -44,10 +110,10 @@ $extensionScript = $manifest.content_scripts[1]
 Assert-ExactValues -Actual @($pageBridgeScript.matches) -Expected @("https://grok.com/*") -Label "page bridge matches"
 Assert-ExactValues -Actual @($pageBridgeScript.js) -Expected @("page-bridge.js") -Label "page bridge scripts"
 Assert-ExactValues -Actual @($extensionScript.matches) -Expected @("https://grok.com/*") -Label "extension content script matches"
-Assert-ExactValues -Actual @($extensionScript.js) -Expected @("i18n.js", "settings-bridge.js", "content.js") -Label "extension content scripts"
+Assert-ExactValues -Actual @($extensionScript.js) -Expected @("webext.js", "i18n.js", "settings-bridge.js", "content.js") -Label "extension content scripts"
 Assert-ExactValues -Actual @($extensionScript.css) -Expected @("content.css") -Label "extension content styles"
 
-if ((@($extensionScript.js) -join "`n") -ne (@("i18n.js", "settings-bridge.js", "content.js") -join "`n")) {
+if ((@($extensionScript.js) -join "`n") -ne (@("webext.js", "i18n.js", "settings-bridge.js", "content.js") -join "`n")) {
   throw "The isolated extension content scripts are in the wrong load order."
 }
 
@@ -67,10 +133,39 @@ if ([string]$manifest.content_security_policy.extension_pages -ne $expectedCsp) 
   throw "Extension page CSP must be: $expectedCsp"
 }
 
+$firefoxOverlay = $null
+if ($targetName -eq "firefox") {
+  $firefoxOverlayPath = Join-Path $projectRoot "manifest.firefox.json"
+  if (-not (Test-Path -LiteralPath $firefoxOverlayPath -PathType Leaf)) {
+    throw "Firefox manifest overlay is missing: manifest.firefox.json"
+  }
+
+  $firefoxOverlay = Get-Content -LiteralPath $firefoxOverlayPath -Raw | ConvertFrom-Json
+  $overlayProperties = @($firefoxOverlay.PSObject.Properties.Name)
+  Assert-ExactValues -Actual $overlayProperties -Expected @("browser_specific_settings") -Label "Firefox overlay keys"
+
+  $gecko = $firefoxOverlay.browser_specific_settings.gecko
+  $expectedFirefoxId = "all-chats-sidebar-for-grok@communism420.github.io"
+  if ([string]$gecko.id -ne $expectedFirefoxId) {
+    throw "Firefox Add-on ID must remain $expectedFirefoxId."
+  }
+  if ([version]$gecko.strict_min_version -lt [version]"142.0") {
+    throw "Firefox strict_min_version must be 142.0 or newer for warning-free built-in data consent."
+  }
+  Assert-ExactValues `
+    -Actual @($gecko.data_collection_permissions.required) `
+    -Expected @("personalCommunications", "websiteContent") `
+    -Label "Firefox required data collection permissions"
+  if ($gecko.data_collection_permissions.PSObject.Properties.Name -contains "optional") {
+    throw "Firefox optional data collection permissions must remain absent."
+  }
+}
+
 $runtimeFiles = @(
   "LICENSE",
   "manifest.json",
   "page-bridge.js",
+  "webext.js",
   "icons\icon16.png",
   "icons\icon32.png",
   "icons\icon48.png",
@@ -121,9 +216,14 @@ foreach ($locale in $requiredLocales) {
 }
 
 $outputRoot = [System.IO.Path]::GetFullPath($OutputDirectory)
-$archivePath = Join-Path $outputRoot "grok-show-all-chats-$expectedVersion.zip"
+$archiveName = if ($targetName -eq "firefox") {
+  "grok-show-all-chats-firefox-$expectedVersion.zip"
+} else {
+  "grok-show-all-chats-$expectedVersion.zip"
+}
+$archivePath = Join-Path $outputRoot $archiveName
 $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
-$stagingRoot = Join-Path $tempRoot ("grok-show-all-chats-" + [guid]::NewGuid().ToString("N"))
+$stagingRoot = Join-Path $tempRoot ("grok-show-all-chats-$targetName-" + [guid]::NewGuid().ToString("N"))
 $stagingRoot = [System.IO.Path]::GetFullPath($stagingRoot)
 
 if (-not $stagingRoot.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
@@ -149,12 +249,23 @@ try {
     Copy-Item -LiteralPath $sourcePath -Destination $destinationPath
   }
 
-  New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
-  if (Test-Path -LiteralPath $archivePath) {
-    Remove-Item -LiteralPath $archivePath -Force
+  if ($targetName -eq "firefox") {
+    $packageManifest = $manifest | ConvertTo-Json -Depth 100 | ConvertFrom-Json
+    $packageManifest | Add-Member `
+      -MemberType NoteProperty `
+      -Name "browser_specific_settings" `
+      -Value $firefoxOverlay.browser_specific_settings
+    $packageManifestJson = $packageManifest | ConvertTo-Json -Depth 100
+    $utf8WithoutBom = [System.Text.UTF8Encoding]::new($false)
+    [System.IO.File]::WriteAllText(
+      (Join-Path $stagingRoot "manifest.json"),
+      $packageManifestJson + [Environment]::NewLine,
+      $utf8WithoutBom
+    )
   }
 
-  Compress-Archive -Path (Join-Path $stagingRoot "*") -DestinationPath $archivePath -CompressionLevel Optimal
+  New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
+  New-DeterministicArchive -SourceDirectory $stagingRoot -DestinationPath $archivePath
 } finally {
   if (Test-Path -LiteralPath $stagingRoot) {
     Remove-Item -LiteralPath $stagingRoot -Recurse -Force

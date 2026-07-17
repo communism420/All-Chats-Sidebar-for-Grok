@@ -1,6 +1,6 @@
 # Privacy Policy for All Chats Sidebar for Grok
 
-Effective date: July 14, 2026
+Effective date: July 17, 2026
 
 ## Summary
 
@@ -39,8 +39,9 @@ The extension does not use user data for advertising, creditworthiness, lending,
 ## Storage and retention
 
 - Conversation metadata is kept only in the memory of the active Grok page and is discarded when the page is closed or reloaded.
-- The selected interface language is stored with `chrome.storage.sync`. Depending on the user's Chrome settings, Google Chrome may synchronize that preference through the user's browser profile.
-- The selected sidebar width is stored locally with `chrome.storage.local`.
+- In Chromium-based browsers, the selected interface language is stored in synchronized extension storage and may be synchronized through the user's browser profile.
+- In Firefox, the selected interface language is stored only in local extension storage and is not sent through Firefox Sync by the extension.
+- The selected sidebar width is stored in local extension storage in both browser families.
 - Settings remain until the user clears extension data or uninstalls the extension.
 
 ## Security
@@ -51,12 +52,18 @@ All executable extension code is included in the extension package. The extensio
 
 The extension's use of information received from Chrome APIs complies with the Chrome Web Store User Data Policy, including the Limited Use requirements.
 
+## Firefox Add-ons data disclosure
+
+The Firefox package declares `personalCommunications` and `websiteContent` as required data categories because the extension handles Grok chat titles and metadata, reads the Grok interface, and sends the direct Grok requests necessary for its primary function. This declaration does not mean the developer receives the data.
+
+The Firefox package declares no optional technical or interaction data collection. It has no telemetry, analytics, advertising, profiling, or developer-operated data service.
+
 ## Changes to this policy
 
-If this policy changes, the updated policy will be published at the same public URL with a revised effective date. Material changes to data handling will also be disclosed in the extension and its Chrome Web Store listing as required.
+If this policy changes, the updated policy will be published at the same public URL with a revised effective date. Material changes to data handling will also be disclosed in the extension and its applicable store listings as required.
 
 ## Contact
 
-Questions about this policy can be submitted through the repository's public issue tracker or the developer support contact shown on the extension's Chrome Web Store listing:
+Questions about this policy can be submitted through the repository's public issue tracker or the developer support contact shown on the extension's store listing:
 
 https://github.com/communism420/All-Chats-Sidebar-for-Grok/issues

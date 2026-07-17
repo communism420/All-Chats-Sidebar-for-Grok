@@ -1,0 +1,15 @@
+{
+  "name": "all-chats-sidebar-for-grok",
+  "version": "1.0.1",
+  "private": true,
+  "description": "Development tools for the cross-browser All Chats Sidebar for Grok extension.",
+  "license": "MIT",
+  "scripts": {
+    "test": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1",
+    "test:firefox": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-firefox.ps1"
+  },
+  "devDependencies": {
+    "playwright": "1.61.1",
+    "web-ext": "10.5.0"
+  }
+}

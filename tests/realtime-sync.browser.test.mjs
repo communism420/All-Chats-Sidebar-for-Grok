@@ -6,10 +6,16 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
-const { chromium } = require("playwright");
+const { chromium, firefox } = require("playwright");
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fixturePath = path.join(projectRoot, "store-assets", "fixture", "index.html");
+const browserEngine = String(process.env.BROWSER_ENGINE || "chromium").toLowerCase();
+if (!new Set(["chromium", "firefox"]).has(browserEngine)) {
+  throw new Error("BROWSER_ENGINE must be either chromium or firefox.");
+}
+const browserType = browserEngine === "firefox" ? firefox : chromium;
+const browserLabel = browserEngine === "firefox" ? "Firefox" : "Chromium";
 const chromeCandidates = [
   process.env.CHROME_PATH,
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
@@ -89,11 +95,12 @@ let browser;
 let context;
 
 try {
-  browser = await chromium.launch({
-    executablePath: await findChromeExecutable(),
-    headless: true,
-    args: ["--force-color-profile=srgb"]
-  });
+  const launchOptions = { headless: true };
+  if (browserEngine === "chromium") {
+    launchOptions.executablePath = await findChromeExecutable();
+    launchOptions.args = ["--force-color-profile=srgb"];
+  }
+  browser = await browserType.launch(launchOptions);
   context = await browser.newContext({
     colorScheme: "dark",
     locale: "en-US",
@@ -225,7 +232,7 @@ try {
     "Conversation changes must not reload the page."
   );
   assert.deepEqual(pageErrors, []);
-  process.stdout.write("Chromium live conversation sync test passed.\n");
+  process.stdout.write(`${browserLabel} live conversation sync test passed.\n`);
 } finally {
   await context?.close();
   await browser?.close();

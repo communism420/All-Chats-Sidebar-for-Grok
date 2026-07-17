@@ -7,7 +7,7 @@ This checklist covers the repository and dashboard work needed for a review. Sto
 Run:
 
 ```powershell
-.\scripts\package.ps1
+.\scripts\package.ps1 -Target Chromium
 ```
 
 Upload `dist/grok-show-all-chats-1.0.1.zip`. The script verifies the fixed version, permissions, host scope, content security policy, required locales, and package contents before creating the ZIP.
@@ -92,5 +92,5 @@ Create screenshots with a dedicated test account. Do not expose an email address
 - Verify that the public privacy-policy URL works without signing in.
 - Load the unpacked extension from the exact source being packaged and test it on current Chrome.
 - Inspect the ZIP and confirm that `manifest.json` is at its root.
-- Upload only the ZIP produced by `scripts/package.ps1`.
+- Upload only the Chromium ZIP produced by `scripts/package.ps1 -Target Chromium`.
 - Do not change version `1.0.1` without the user's explicit permission.

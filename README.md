@@ -1,6 +1,6 @@
 # All Chats Sidebar for Grok
 
-Fully open-source Chromium extension that shows the complete Grok chat history directly in the left sidebar. The project is not affiliated with, endorsed by, or sponsored by xAI.
+Fully open-source cross-browser extension for Chromium-based browsers and Firefox Desktop 142 or newer. It shows the complete Grok chat history directly in the left sidebar. The project is not affiliated with, endorsed by, or sponsored by xAI.
 
 Source code: https://github.com/communism420/All-Chats-Sidebar-for-Grok
 
@@ -8,9 +8,11 @@ Website: https://communism420.github.io/All-Chats-Sidebar-for-Grok/
 
 Current version: `1.0.1`. Do not change it without the project owner's explicit permission.
 
-See [CHANGELOG.md](CHANGELOG.md) for Chrome Web Store-ready release notes.
+See [CHANGELOG.md](CHANGELOG.md) for store-ready release notes.
 
 ## Installation
+
+### Chromium
 
 1. Open `chrome://extensions` in a Chromium-based browser.
 2. Enable **Developer mode**.
@@ -18,9 +20,19 @@ See [CHANGELOG.md](CHANGELOG.md) for Chrome Web Store-ready release notes.
 4. Choose the directory containing the unpacked extension source code.
 5. Open or reload `https://grok.com`.
 
+### Firefox
+
+1. Build the Firefox package with `.\scripts\package.ps1 -Target Firefox`.
+2. Extract `dist/grok-show-all-chats-firefox-1.0.1.zip`.
+3. Open `about:debugging#/runtime/this-firefox` in Firefox Desktop 142 or newer.
+4. Select **Load Temporary Add-on** and choose the extracted `manifest.json`.
+5. Open or reload `https://grok.com`.
+
+Temporary add-ons are removed when Firefox closes. Public installation requires a package signed by Mozilla Add-ons.
+
 ## Language
 
-Select the extension icon in the Chromium toolbar and choose a language from the list. The setting is applied to open Grok tabs immediately and is synchronized through the browser profile. By default, the extension uses the browser language and then the website language.
+Select the extension icon in the browser toolbar and choose a language from the list. The setting is applied to open Grok tabs immediately. Chromium can synchronize it through the browser profile; Firefox keeps it local. By default, the extension uses the browser language and then the website language.
 
 The extension supports English, Spanish, German, Brazilian Portuguese, Russian, Ukrainian, and French.
 
@@ -41,7 +53,7 @@ The extension may require an update if xAI changes the conversation endpoint or 
 
 ## Privacy
 
-The extension processes chat titles and metadata only inside the browser and communicates directly with `grok.com`. It contains no analytics, advertising, telemetry, or developer-operated servers. The interface language is stored in `chrome.storage.sync`, while the selected sidebar width is stored in `chrome.storage.local`.
+The extension processes chat titles and metadata only inside the browser and communicates directly with `grok.com`. It contains no analytics, advertising, telemetry, or developer-operated servers. Chromium stores the interface language in synchronized extension storage; Firefox stores it locally. The selected sidebar width is local in both browser families.
 
 See the complete [Privacy Policy](https://communism420.github.io/All-Chats-Sidebar-for-Grok/privacy.html). The source text is also available in [PRIVACY.md](PRIVACY.md).
 
@@ -51,12 +63,20 @@ All extension code, localizations, artwork, and build scripts are publicly avail
 
 The project is distributed under the [MIT License](LICENSE). See the complete [Open-Source Policy](OPEN_SOURCE.md).
 
-## Chrome Web Store Build
+## Tests And Release Builds
 
 Run the syntax and navigation regression tests:
 
 ```powershell
 .\scripts\test.ps1
+```
+
+For official Firefox linting and a real Firefox browser regression run:
+
+```powershell
+npm ci
+npx playwright install firefox
+.\scripts\test-firefox.ps1
 ```
 
 Generate the `16/32/48/128` icon files from the `logo.png` master artwork:
@@ -65,10 +85,13 @@ Generate the `16/32/48/128` icon files from the `logo.png` master artwork:
 .\scripts\generate-icons.ps1
 ```
 
-Then build the store package:
+Build both store packages from the same source:
 
 ```powershell
-.\scripts\package.ps1
+.\scripts\package.ps1 -Target Chromium
+.\scripts\package.ps1 -Target Firefox
 ```
 
-The archive is created at `dist/grok-show-all-chats-1.0.1.zip`. See [CHROME_WEB_STORE.md](CHROME_WEB_STORE.md) for listing, privacy-practices, and reviewer-instructions guidance.
+The Chromium archive is created at `dist/grok-show-all-chats-1.0.1.zip`. The Firefox archive is created at `dist/grok-show-all-chats-firefox-1.0.1.zip`.
+
+See [CHROME_WEB_STORE.md](CHROME_WEB_STORE.md) and [FIREFOX_ADD_ONS.md](FIREFOX_ADD_ONS.md) for store-specific listing, privacy, and reviewer guidance.

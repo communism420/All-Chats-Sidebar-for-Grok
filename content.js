@@ -108,6 +108,7 @@
   const CHAT_PATH_PATTERN = /^\/(?:chat|chat-v1|chat-v2|c|conversation|grok\/chat)\/([^/?#]+)/i;
   const CONVERSATION_UUID_PATTERN = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
   const i18n = globalThis.GrokShowAllChatsI18n;
+  const webExtension = globalThis.GrokShowAllChatsWebExtension;
   if (!i18n) {
     return;
   }
@@ -1290,20 +1291,15 @@
   }
 
   function useSidebarWidthStorage(action, value) {
-    const storage = globalThis.chrome?.storage?.local;
-    if (!storage) {
+    if (!webExtension?.available) {
       return;
     }
 
-    const callback = () => {
-      void globalThis.chrome?.runtime?.lastError;
-    };
     try {
-      if (action === "remove") {
-        storage.remove(SIDEBAR_WIDTH_STORAGE_KEY, callback);
-      } else {
-        storage.set({ [SIDEBAR_WIDTH_STORAGE_KEY]: value }, callback);
-      }
+      const operation = action === "remove"
+        ? webExtension.storage.remove("local", SIDEBAR_WIDTH_STORAGE_KEY)
+        : webExtension.storage.set("local", { [SIDEBAR_WIDTH_STORAGE_KEY]: value });
+      void operation.catch(() => {});
     } catch {
       // Resizing remains available even when extension storage is unavailable.
     }
@@ -1450,24 +1446,21 @@
   }
 
   function loadSidebarWidthPreference() {
-    const storage = globalThis.chrome?.storage?.local;
-    if (!storage) {
+    if (!webExtension?.available) {
       return;
     }
 
-    try {
-      storage.get({ [SIDEBAR_WIDTH_STORAGE_KEY]: 0 }, (settings) => {
-        if (globalThis.chrome?.runtime?.lastError) {
-          return;
-        }
+    void webExtension.storage
+      .get("local", { [SIDEBAR_WIDTH_STORAGE_KEY]: 0 })
+      .then((settings) => {
         state.preferredSidebarWidthPixels = normalizeSidebarWidth(
           settings?.[SIDEBAR_WIDTH_STORAGE_KEY]
         );
         scheduleImmediateRun();
+      })
+      .catch(() => {
+        // The native sidebar width remains the default when storage cannot be read.
       });
-    } catch {
-      // The native sidebar width remains the default when storage cannot be read.
-    }
   }
 
   function handleSidebarWidthStorageChange(changes, areaName) {
@@ -3417,7 +3410,7 @@
   window.setInterval(maybeRefreshApiLoad, REFRESH_INTERVAL_MS);
   document.addEventListener("visibilitychange", handleVisibilityChange);
 
-  globalThis.chrome?.storage?.onChanged?.addListener(handleSidebarWidthStorageChange);
+  webExtension?.addStorageChangeListener(handleSidebarWidthStorageChange);
   setupConversationSyncChannel();
   loadSidebarWidthPreference();
   scheduleRun();

@@ -1,0 +1,14 @@
+{
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "all-chats-sidebar-for-grok@communism420.github.io",
+      "strict_min_version": "142.0",
+      "data_collection_permissions": {
+        "required": [
+          "personalCommunications",
+          "websiteContent"
+        ]
+      }
+    }
+  }
+}

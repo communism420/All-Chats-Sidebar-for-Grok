@@ -2,7 +2,8 @@
   "use strict";
 
   const i18n = globalThis.GrokShowAllChatsI18n;
-  if (!i18n || !globalThis.chrome?.storage?.sync) {
+  const webExtension = globalThis.GrokShowAllChatsWebExtension;
+  if (!i18n || !webExtension?.available) {
     return;
   }
 
@@ -75,27 +76,21 @@
     }
   }
 
-  function loadPreference() {
-    return new Promise((resolve) => {
-      chrome.storage.sync.get({ [i18n.STORAGE_KEY]: "auto" }, (result) => {
-        if (chrome.runtime.lastError) {
-          resolve("auto");
-          return;
-        }
-        resolve(i18n.normalizePreference(result[i18n.STORAGE_KEY]));
-      });
-    });
+  async function loadPreference() {
+    try {
+      const result = await webExtension.storage.get(
+        webExtension.preferenceAreaName,
+        { [i18n.STORAGE_KEY]: "auto" }
+      );
+      return i18n.normalizePreference(result[i18n.STORAGE_KEY]);
+    } catch {
+      return "auto";
+    }
   }
 
   function saveSetting(key, value) {
-    return new Promise((resolve, reject) => {
-      chrome.storage.sync.set({ [key]: value }, () => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
-        resolve();
-      });
+    return webExtension.storage.set(webExtension.preferenceAreaName, {
+      [key]: value
     });
   }
 

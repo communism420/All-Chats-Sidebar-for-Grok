@@ -2,7 +2,8 @@
   "use strict";
 
   const i18n = globalThis.GrokShowAllChatsI18n;
-  if (!i18n || !globalThis.chrome?.storage?.sync) {
+  const webExtension = globalThis.GrokShowAllChatsWebExtension;
+  if (!i18n || !webExtension?.available) {
     return;
   }
 
@@ -17,18 +18,20 @@
     root.dispatchEvent(new Event(i18n.LANGUAGE_CHANGE_EVENT));
   }
 
-  function loadLanguage() {
-    chrome.storage.sync.get({ [i18n.STORAGE_KEY]: "auto" }, (result) => {
-      if (chrome.runtime.lastError) {
-        publishLanguage("auto");
-        return;
-      }
+  async function loadLanguage() {
+    try {
+      const result = await webExtension.storage.get(
+        webExtension.preferenceAreaName,
+        { [i18n.STORAGE_KEY]: "auto" }
+      );
       publishLanguage(result[i18n.STORAGE_KEY]);
-    });
+    } catch {
+      publishLanguage("auto");
+    }
   }
 
-  chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== "sync") {
+  webExtension.addStorageChangeListener((changes, areaName) => {
+    if (areaName !== webExtension.preferenceAreaName) {
       return;
     }
 
@@ -37,5 +40,5 @@
     }
   });
 
-  loadLanguage();
+  void loadLanguage();
 })();

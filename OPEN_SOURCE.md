@@ -8,7 +8,7 @@ The complete source code is published at:
 
 https://github.com/communism420/All-Chats-Sidebar-for-Grok
 
-The repository contains the extension's JavaScript, CSS, HTML, localizations, master artwork, generated icons, build scripts, privacy policy, and Chrome Web Store submission documentation. Release ZIP files are reproducibly created from this source with `scripts/package.ps1`.
+The repository contains the extension's JavaScript, CSS, HTML, localizations, master artwork, generated icons, browser-specific manifest overlay, build scripts, privacy policy, and store submission documentation. Chromium and Firefox release ZIP files are reproducibly created from this source with `scripts/package.ps1`.
 
 The extension has no closed-source runtime component, developer-operated backend, remotely hosted executable code, analytics library, advertising SDK, telemetry system, or private build dependency.
 
@@ -20,6 +20,6 @@ Contributions submitted to this repository are understood to be offered under th
 
 ## Third-party services and trademarks
 
-Grok and xAI are not part of this repository and are not covered by this project's license. Use of Grok remains subject to xAI's terms and policies. Grok, xAI, Chrome, Chromium, and related names and marks belong to their respective owners.
+Grok and xAI are not part of this repository and are not covered by this project's license. Use of Grok remains subject to xAI's terms and policies. Grok, xAI, Chrome, Chromium, Firefox, Mozilla, and related names and marks belong to their respective owners.
 
-This project is unofficial and is not affiliated with, endorsed by, or sponsored by xAI or Google.
+This project is unofficial and is not affiliated with, endorsed by, or sponsored by xAI, Google, or Mozilla.
