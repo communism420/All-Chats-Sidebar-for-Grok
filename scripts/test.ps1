@@ -4,12 +4,25 @@ param()
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
+function Get-Sha256Hex {
+  param([Parameter(Mandatory)] [string]$Path)
+
+  $stream = [System.IO.File]::OpenRead([System.IO.Path]::GetFullPath($Path))
+  $algorithm = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    return [System.BitConverter]::ToString($algorithm.ComputeHash($stream)).Replace("-", "")
+  } finally {
+    $algorithm.Dispose()
+    $stream.Dispose()
+  }
+}
+
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 Push-Location $projectRoot
 
 try {
   $manifest = Get-Content -LiteralPath "manifest.json" -Raw | ConvertFrom-Json
-  $expectedVersion = "1.0.1"
+  $expectedVersion = "1.0.2"
   if ([string]$manifest.version -ne $expectedVersion) {
     throw "manifest.json version must remain $expectedVersion."
   }
@@ -121,8 +134,8 @@ try {
     & "scripts/package.ps1" -Target Firefox -OutputDirectory $repeatRoot
     foreach ($expectation in $packageExpectations) {
       $repeatPath = Join-Path $repeatRoot $expectation.FileName
-      $firstHash = (Get-FileHash -LiteralPath $expectation.Path -Algorithm SHA256).Hash
-      $repeatHash = (Get-FileHash -LiteralPath $repeatPath -Algorithm SHA256).Hash
+      $firstHash = Get-Sha256Hex -Path $expectation.Path
+      $repeatHash = Get-Sha256Hex -Path $repeatPath
       if ($firstHash -ne $repeatHash) {
         throw "The $($expectation.FileName) package is not byte-for-byte reproducible."
       }

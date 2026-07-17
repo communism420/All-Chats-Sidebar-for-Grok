@@ -6,7 +6,7 @@ Source code: https://github.com/communism420/All-Chats-Sidebar-for-Grok
 
 Website: https://communism420.github.io/All-Chats-Sidebar-for-Grok/
 
-Current version: `1.0.1`. Do not change it without the project owner's explicit permission.
+Current version: `1.0.2`. Do not change it without the project owner's explicit permission.
 
 See [CHANGELOG.md](CHANGELOG.md) for store-ready release notes.
 
@@ -23,7 +23,7 @@ See [CHANGELOG.md](CHANGELOG.md) for store-ready release notes.
 ### Firefox
 
 1. Build the Firefox package with `.\scripts\package.ps1 -Target Firefox`.
-2. Extract `dist/grok-show-all-chats-firefox-1.0.1.zip`.
+2. Extract `dist/grok-show-all-chats-firefox-1.0.2.zip`.
 3. Open `about:debugging#/runtime/this-firefox` in Firefox Desktop 142 or newer.
 4. Select **Load Temporary Add-on** and choose the extracted `manifest.json`.
 5. Open or reload `https://grok.com`.
@@ -92,6 +92,6 @@ Build both store packages from the same source:
 .\scripts\package.ps1 -Target Firefox
 ```
 
-The Chromium archive is created at `dist/grok-show-all-chats-1.0.1.zip`. The Firefox archive is created at `dist/grok-show-all-chats-firefox-1.0.1.zip`.
+The Chromium archive is created at `dist/grok-show-all-chats-1.0.2.zip`. The Firefox archive is created at `dist/grok-show-all-chats-firefox-1.0.2.zip`.
 
 See [CHROME_WEB_STORE.md](CHROME_WEB_STORE.md) and [FIREFOX_ADD_ONS.md](FIREFOX_ADD_ONS.md) for store-specific listing, privacy, and reviewer guidance.

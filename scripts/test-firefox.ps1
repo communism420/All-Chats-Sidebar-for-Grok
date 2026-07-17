@@ -27,7 +27,7 @@ Push-Location $projectRoot
 try {
   & "scripts/package.ps1" -Target Firefox -OutputDirectory $packageRoot
 
-  $archivePath = Join-Path $packageRoot "grok-show-all-chats-firefox-1.0.1.zip"
+  $archivePath = Join-Path $packageRoot "grok-show-all-chats-firefox-1.0.2.zip"
   Expand-Archive -LiteralPath $archivePath -DestinationPath $sourceRoot
 
   & node $webExtScript lint --source-dir $sourceRoot --warnings-as-errors --no-config-discovery

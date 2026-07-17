@@ -1,6 +1,6 @@
 {
   "name": "all-chats-sidebar-for-grok",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Development tools for the cross-browser All Chats Sidebar for Grok extension.",
   "license": "MIT",

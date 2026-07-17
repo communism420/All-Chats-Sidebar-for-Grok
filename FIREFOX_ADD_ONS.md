@@ -36,7 +36,7 @@ Run:
 .\scripts\package.ps1 -Target Firefox
 ```
 
-Upload `dist/grok-show-all-chats-firefox-1.0.1.zip` to AMO. Its `manifest.json` is generated at build time from the shared manifest and the reviewed Firefox overlay. The archive contains readable, unminified source code and no runtime dependencies.
+Upload `dist/grok-show-all-chats-firefox-1.0.2.zip` to AMO. Its `manifest.json` is generated at build time from the shared manifest and the reviewed Firefox overlay. The archive contains readable, unminified source code and no runtime dependencies.
 
 ## Suggested Listing
 
@@ -95,4 +95,4 @@ Never put test credentials in this repository, the public listing, screenshots, 
 - Test the exact ZIP submitted to AMO, not a different development directory.
 - Confirm that `manifest.json` is at the archive root and contains the stable Add-on ID.
 - Upload only the ZIP produced by `scripts/package.ps1 -Target Firefox`.
-- Keep version `1.0.1` unless the project owner explicitly authorizes a version change.
+- Keep version `1.0.2` unless the project owner explicitly authorizes a version change.

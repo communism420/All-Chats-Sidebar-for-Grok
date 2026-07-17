@@ -22,6 +22,22 @@ function Assert-ExactValues {
   }
 }
 
+function Get-ArchiveRelativePath {
+  param(
+    [Parameter(Mandatory)] [string]$RootPath,
+    [Parameter(Mandatory)] [string]$FilePath
+  )
+
+  $separator = [System.IO.Path]::DirectorySeparatorChar
+  $normalizedRoot = [System.IO.Path]::GetFullPath($RootPath).TrimEnd("\", "/") + $separator
+  $normalizedFile = [System.IO.Path]::GetFullPath($FilePath)
+  if (-not $normalizedFile.StartsWith($normalizedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Archive file is outside the source directory: $normalizedFile"
+  }
+
+  return $normalizedFile.Substring($normalizedRoot.Length).Replace("\", "/")
+}
+
 function New-DeterministicArchive {
   param(
     [Parameter(Mandatory)] [string]$SourceDirectory,
@@ -42,7 +58,7 @@ function New-DeterministicArchive {
   )
   $files = @(
     Get-ChildItem -LiteralPath $sourceRoot -Recurse -File |
-      Sort-Object { [System.IO.Path]::GetRelativePath($sourceRoot, $_.FullName) }
+      Sort-Object { Get-ArchiveRelativePath -RootPath $sourceRoot -FilePath $_.FullName }
   )
 
   $outputStream = [System.IO.File]::Open(
@@ -59,7 +75,7 @@ function New-DeterministicArchive {
     )
     try {
       foreach ($file in $files) {
-        $relativePath = [System.IO.Path]::GetRelativePath($sourceRoot, $file.FullName).Replace("\", "/")
+        $relativePath = Get-ArchiveRelativePath -RootPath $sourceRoot -FilePath $file.FullName
         $entry = $archive.CreateEntry($relativePath, [System.IO.Compression.CompressionLevel]::Optimal)
         $entry.LastWriteTime = $fixedTimestamp
         $entry.ExternalAttributes = 0
@@ -85,7 +101,7 @@ $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $manifestPath = Join-Path $projectRoot "manifest.json"
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 $targetName = $Target.ToLowerInvariant()
-$expectedVersion = "1.0.1"
+$expectedVersion = "1.0.2"
 
 if ([string]$manifest.version -ne $expectedVersion) {
   throw "manifest.json version must remain $expectedVersion unless the user explicitly requests a change."
