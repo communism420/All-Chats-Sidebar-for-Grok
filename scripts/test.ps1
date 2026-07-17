@@ -149,7 +149,10 @@ try {
 
   $siteFiles = @(
     "docs\.nojekyll",
+    "docs\assets\chat-actions.png",
     "docs\assets\logo.png",
+    "docs\assets\resizable-sidebar.png",
+    "docs\assets\sidebar-overview.png",
     "docs\index.html",
     "docs\privacy.html",
     "docs\styles.css"
@@ -190,6 +193,20 @@ try {
       if (-not (Test-Path -LiteralPath $localTarget -PathType Leaf)) {
         throw "Broken local reference in $($htmlFile.Name): $target"
       }
+    }
+  }
+
+  $homePage = Get-Content -LiteralPath "docs\index.html" -Raw
+  foreach ($requiredStatement in @(
+    "Version 1.0.2",
+    "Chromium and Firefox",
+    "Firefox Desktop 142 or newer",
+    "Firefox for Android is not currently supported",
+    "New chats, generated titles, pin state, ordering, renames, and deletions",
+    "analytics, telemetry, advertising, tracking, remote code"
+  )) {
+    if (-not $homePage.Contains($requiredStatement)) {
+      throw "The website home page is missing: $requiredStatement"
     }
   }
 

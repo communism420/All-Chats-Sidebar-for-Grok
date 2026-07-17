@@ -1,12 +1,12 @@
 # All Chats Sidebar for Grok
 
-Fully open-source cross-browser extension for Chromium-based browsers and Firefox Desktop 142 or newer. It shows the complete Grok chat history directly in the left sidebar. The project is not affiliated with, endorsed by, or sponsored by xAI.
+Fully open-source cross-browser extension for Chromium-based browsers and Firefox Desktop 142 or newer. It replaces Grok's shortened history with one complete, live-updating chat list directly in the left sidebar. The project is not affiliated with, endorsed by, or sponsored by xAI.
 
 Source code: https://github.com/communism420/All-Chats-Sidebar-for-Grok
 
 Website: https://communism420.github.io/All-Chats-Sidebar-for-Grok/
 
-Current version: `1.0.2`. Do not change it without the project owner's explicit permission.
+Current release: `1.0.2`.
 
 See [CHANGELOG.md](CHANGELOG.md) for store-ready release notes.
 
@@ -29,6 +29,15 @@ See [CHANGELOG.md](CHANGELOG.md) for store-ready release notes.
 5. Open or reload `https://grok.com`.
 
 Temporary add-ons are removed when Firefox closes. Public installation requires a package signed by Mozilla Add-ons.
+
+## Browser Support
+
+| Browser family | Supported release | Settings behavior |
+| --- | --- | --- |
+| Chromium-based desktop browsers | Current releases | Language can synchronize through the browser profile; width remains local. |
+| Firefox Desktop | Version 142 or newer | Language and width remain local to Firefox. |
+
+Firefox for Android is not currently supported or advertised. Both desktop packages are generated from the same readable source code, with a small reviewed Firefox manifest overlay applied only during Firefox packaging.
 
 ## Language
 
@@ -65,16 +74,24 @@ The project is distributed under the [MIT License](LICENSE). See the complete [O
 
 ## Tests And Release Builds
 
-Run the syntax and navigation regression tests:
-
-```powershell
-.\scripts\test.ps1
-```
-
-For official Firefox linting and a real Firefox browser regression run:
+Install the pinned development dependencies and run syntax, adapter, navigation, package, reproducibility, and website checks:
 
 ```powershell
 npm ci
+.\scripts\test.ps1
+```
+
+Run the live browser checks in both engines:
+
+```powershell
+npx playwright install chromium firefox
+$env:RUN_BROWSER_TESTS = "1"
+.\scripts\test.ps1
+```
+
+For official Mozilla Add-ons linting and a dedicated Firefox regression run:
+
+```powershell
 npx playwright install firefox
 .\scripts\test-firefox.ps1
 ```
@@ -92,6 +109,6 @@ Build both store packages from the same source:
 .\scripts\package.ps1 -Target Firefox
 ```
 
-The Chromium archive is created at `dist/grok-show-all-chats-1.0.2.zip`. The Firefox archive is created at `dist/grok-show-all-chats-firefox-1.0.2.zip`.
+The Chromium archive is created at `dist/grok-show-all-chats-1.0.2.zip`. The Firefox archive is created at `dist/grok-show-all-chats-firefox-1.0.2.zip`. The packaging script validates the manifest, runtime file set, permissions, localization coverage, and browser-specific metadata before producing deterministic ZIP files.
 
 See [CHROME_WEB_STORE.md](CHROME_WEB_STORE.md) and [FIREFOX_ADD_ONS.md](FIREFOX_ADD_ONS.md) for store-specific listing, privacy, and reviewer guidance.

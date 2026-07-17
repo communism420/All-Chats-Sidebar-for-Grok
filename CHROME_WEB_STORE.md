@@ -28,6 +28,8 @@ Upload `dist/grok-show-all-chats-1.0.2.zip`. The script verifies the fixed versi
 >
 > Open chats without a page reload, resize the sidebar by dragging its right edge, and use each chat's menu to open it in a new tab, rename it, pin or unpin it, or delete it. The interface supports English, Spanish, German, Brazilian Portuguese, Russian, Ukrainian, and French.
 >
+> To provide these features, the extension handles Grok conversation identifiers, titles, timestamps, pinned status, and user-requested chat-management actions. Requests go directly over HTTPS between the browser and grok.com through the user's existing signed-in session. This information is not sent to the extension developer. The extension does not read or store chat message bodies and contains no analytics, telemetry, advertising, tracking, or remote executable code.
+>
 > A signed-in Grok account is required. This extension is unofficial and is not affiliated with, endorsed by, or sponsored by xAI.
 >
 > The complete source code and reproducible build scripts are available under the MIT License at https://github.com/communism420/All-Chats-Sidebar-for-Grok.
@@ -36,7 +38,7 @@ Keep localized listings consistent with these claims. Do not add capabilities th
 
 ## Update notes
 
-The plain-text release notes in [CHANGELOG.md](CHANGELOG.md) are written for direct use in the Chrome Web Store listing. When publishing an update log, append that text to the detailed description without adding developer-only implementation details.
+The latest section in [CHANGELOG.md](CHANGELOG.md) is written for direct use as the Chrome Web Store release notes. Copy only the current-version section, not the older release history or developer-only implementation details.
 
 ## Privacy dashboard
 

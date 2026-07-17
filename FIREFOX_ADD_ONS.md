@@ -42,9 +42,21 @@ Upload `dist/grok-show-all-chats-firefox-1.0.2.zip` to AMO. Its `manifest.json` 
 
 **Name:** All Chats Sidebar for Grok
 
+**Add-on URL:** `all-chats-sidebar-for-grok`
+
+**Current version:** `1.0.2`
+
 **Summary:** Open-source, unofficial extension that shows the complete Grok chat history directly in the sidebar.
 
-**Category:** Other or Productivity, depending on the categories currently offered by AMO.
+**Categories:** Appearance and Social & Communication.
+
+**Support email:** Use a monitored public support address; do not use a no-reply address.
+
+**Support website:** https://github.com/communism420/All-Chats-Sidebar-for-Grok/issues
+
+**License:** MIT License.
+
+**Submission flags:** Do not mark the extension as experimental or as requiring payment, non-free software, or additional hardware. Mark it as having a privacy policy.
 
 **Description:**
 
@@ -53,6 +65,8 @@ Upload `dist/grok-show-all-chats-firefox-1.0.2.zip` to AMO. Its `manifest.json` 
 > New chats, title changes, pin state, activity order, and deletions update live across open Grok tabs without requiring a page reload.
 >
 > Open chats without a page reload, resize the sidebar by dragging its right edge, and use each chat's menu to open it in a new tab, rename it, pin or unpin it, or delete it. The interface supports English, Spanish, German, Brazilian Portuguese, Russian, Ukrainian, and French.
+>
+> To provide these features, the extension handles Grok conversation identifiers, titles, timestamps, pinned status, and user-requested chat-management actions. Requests go directly over HTTPS between Firefox and grok.com through the user's existing signed-in session. This information is not sent to the extension developer. The extension does not read or store chat message bodies and contains no analytics, telemetry, advertising, tracking, or remote executable code.
 >
 > A signed-in Grok account is required. This extension is unofficial and is not affiliated with, endorsed by, or sponsored by xAI.
 >
@@ -77,6 +91,8 @@ Use this public privacy-policy URL:
 
 https://communism420.github.io/All-Chats-Sidebar-for-Grok/privacy.html
 
+When AMO displays the privacy-policy editor, paste the complete English policy from `PRIVACY.md`; do not provide only the external URL.
+
 ## Reviewer Instructions
 
 The extension requires a signed-in Grok account to demonstrate its main feature.
@@ -86,7 +102,15 @@ The extension requires a signed-in Grok account to demonstrate its main feature.
 3. Explain that the full list replaces the shortened native history in the left sidebar.
 4. Ask the reviewer to test chat navigation, the three-dot menu, language selection, and right-edge resizing.
 
-Never put test credentials in this repository, the public listing, screenshots, promotional images, or reviewer notes that are visible publicly.
+The private reviewer notes should also identify version `1.0.2`, Firefox Desktop 142 or newer, the public source repository, and the build command `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1 -Target Firefox`. State that the uploaded ZIP contains readable, unminified source code, no runtime dependencies, and no remote executable code.
+
+Because the main feature requires authentication, provide working credentials for a dedicated review account in AMO's private reviewer-notes field. Never put those credentials in this repository, the public listing, screenshots, promotional images, or any field visible publicly.
+
+## Listing Assets
+
+- Use `icons/icon128.png` as the listing icon.
+- Use the fictional 1280 x 800 screenshots from `store-assets/screenshots/` to demonstrate the complete history, chat menu, and resizable sidebar.
+- Do not use screenshots from a personal Grok account or expose account details, private titles, credentials, or conversation content.
 
 ## Final Checks
 
