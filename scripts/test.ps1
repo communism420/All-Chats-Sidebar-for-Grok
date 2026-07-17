@@ -17,6 +17,21 @@ function Get-Sha256Hex {
   }
 }
 
+function Get-TreeRelativePath {
+  param(
+    [Parameter(Mandatory)] [string]$RootPath,
+    [Parameter(Mandatory)] [string]$FilePath
+  )
+
+  $separator = [System.IO.Path]::DirectorySeparatorChar
+  $normalizedRoot = [System.IO.Path]::GetFullPath($RootPath).TrimEnd("\", "/") + $separator
+  $normalizedFile = [System.IO.Path]::GetFullPath($FilePath)
+  if (-not $normalizedFile.StartsWith($normalizedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "File is outside the expected tree: $normalizedFile"
+  }
+  return $normalizedFile.Substring($normalizedRoot.Length).Replace("\", "/")
+}
+
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 Push-Location $projectRoot
 
@@ -50,6 +65,11 @@ try {
     if ($LASTEXITCODE -ne 0) {
       throw "JavaScript syntax check failed: $script"
     }
+  }
+
+  & node --check "scripts/build-firefox-source.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Firefox reviewer build-script syntax check failed."
   }
 
   & node "tests/webext.test.js"
@@ -89,6 +109,7 @@ try {
   try {
     & "scripts/package.ps1" -Target Chromium -OutputDirectory (Join-Path $packageTestRoot "chromium")
     & "scripts/package.ps1" -Target Firefox -OutputDirectory (Join-Path $packageTestRoot "firefox")
+    & "scripts/package-source.ps1" -OutputDirectory (Join-Path $packageTestRoot "source")
 
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $packageExpectations = @(
@@ -129,9 +150,42 @@ try {
       }
     }
 
+    $sourceFileName = "grok-show-all-chats-firefox-$expectedVersion-source.zip"
+    $sourceArchivePath = Join-Path $packageTestRoot "source\$sourceFileName"
+    $sourceArchive = [System.IO.Compression.ZipFile]::OpenRead($sourceArchivePath)
+    try {
+      $sourceEntries = @(
+        $sourceArchive.Entries |
+          Where-Object { $_.Name } |
+          Select-Object -ExpandProperty FullName
+      )
+      foreach ($requiredSourceEntry in @(
+        "SOURCE_BUILD.md",
+        "manifest.json",
+        "manifest.firefox.json",
+        "package-lock.json",
+        "scripts/build-firefox-source.mjs",
+        "scripts/package-files.json",
+        "scripts/package.ps1"
+      )) {
+        if ($sourceEntries -notcontains $requiredSourceEntry) {
+          throw "The reviewer source archive is missing: $requiredSourceEntry"
+        }
+      }
+      foreach ($sourceEntry in $sourceEntries) {
+        if ($sourceEntry -match '(^|/)(\.git|node_modules|dist|build)(/|$)' -or
+          $sourceEntry -match '(^|/)(\.env|\.dev\.vars)') {
+          throw "The reviewer source archive contains a forbidden path: $sourceEntry"
+        }
+      }
+    } finally {
+      $sourceArchive.Dispose()
+    }
+
     $repeatRoot = Join-Path $packageTestRoot "repeat"
     & "scripts/package.ps1" -Target Chromium -OutputDirectory $repeatRoot
     & "scripts/package.ps1" -Target Firefox -OutputDirectory $repeatRoot
+    & "scripts/package-source.ps1" -OutputDirectory $repeatRoot
     foreach ($expectation in $packageExpectations) {
       $repeatPath = Join-Path $repeatRoot $expectation.FileName
       $firstHash = Get-Sha256Hex -Path $expectation.Path
@@ -140,6 +194,47 @@ try {
         throw "The $($expectation.FileName) package is not byte-for-byte reproducible."
       }
     }
+    $repeatSourcePath = Join-Path $repeatRoot $sourceFileName
+    if ((Get-Sha256Hex -Path $sourceArchivePath) -ne (Get-Sha256Hex -Path $repeatSourcePath)) {
+      throw "The $sourceFileName package is not byte-for-byte reproducible."
+    }
+
+    $sourceExtractRoot = Join-Path $packageTestRoot "source-extracted"
+    $releaseExtractRoot = Join-Path $packageTestRoot "release-extracted"
+    Expand-Archive -LiteralPath $sourceArchivePath -DestinationPath $sourceExtractRoot
+    Expand-Archive -LiteralPath $packageExpectations[1].Path -DestinationPath $releaseExtractRoot
+    Push-Location $sourceExtractRoot
+    try {
+      & node "scripts/build-firefox-source.mjs"
+      if ($LASTEXITCODE -ne 0) {
+        throw "The Firefox reviewer source build failed."
+      }
+    } finally {
+      Pop-Location
+    }
+
+    $rebuiltRoot = Join-Path $sourceExtractRoot "build\firefox"
+    $releaseFiles = @(
+      Get-ChildItem -LiteralPath $releaseExtractRoot -Recurse -File |
+        ForEach-Object { Get-TreeRelativePath -RootPath $releaseExtractRoot -FilePath $_.FullName } |
+        Sort-Object
+    )
+    $rebuiltFiles = @(
+      Get-ChildItem -LiteralPath $rebuiltRoot -Recurse -File |
+        ForEach-Object { Get-TreeRelativePath -RootPath $rebuiltRoot -FilePath $_.FullName } |
+        Sort-Object
+    )
+    if (($releaseFiles -join "`n") -ne ($rebuiltFiles -join "`n")) {
+      throw "The Firefox reviewer build has a different file list from the submitted extension."
+    }
+    foreach ($relativePath in $releaseFiles) {
+      $releaseHash = Get-Sha256Hex -Path (Join-Path $releaseExtractRoot $relativePath)
+      $rebuiltHash = Get-Sha256Hex -Path (Join-Path $rebuiltRoot $relativePath)
+      if ($releaseHash -ne $rebuiltHash) {
+        throw "The Firefox reviewer build differs from the submitted extension: $relativePath"
+      }
+    }
+    Write-Output "Firefox reviewer source rebuild matched all $($releaseFiles.Count) extension files."
   } finally {
     if ($packageTestRoot.StartsWith($systemTemp, [System.StringComparison]::OrdinalIgnoreCase) -and
       (Test-Path -LiteralPath $packageTestRoot)) {

@@ -2,7 +2,7 @@
 param(
   [ValidateSet("Chromium", "Firefox")]
   [string]$Target = "Chromium",
-  [string]$OutputDirectory = (Join-Path $PSScriptRoot "..\dist")
+  [string]$OutputDirectory = (Join-Path $PSScriptRoot "../dist")
 )
 
 $ErrorActionPreference = "Stop"
@@ -100,6 +100,8 @@ function New-DeterministicArchive {
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $manifestPath = Join-Path $projectRoot "manifest.json"
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+$packageFilesPath = Join-Path $projectRoot "scripts/package-files.json"
+$packageFiles = Get-Content -LiteralPath $packageFilesPath -Raw | ConvertFrom-Json
 $targetName = $Target.ToLowerInvariant()
 $expectedVersion = "1.0.2"
 
@@ -177,25 +179,9 @@ if ($targetName -eq "firefox") {
   }
 }
 
-$runtimeFiles = @(
-  "LICENSE",
-  "manifest.json",
-  "page-bridge.js",
-  "webext.js",
-  "icons\icon16.png",
-  "icons\icon32.png",
-  "icons\icon48.png",
-  "icons\icon128.png",
-  "content.js",
-  "content.css",
-  "i18n.js",
-  "settings-bridge.js",
-  "popup.js",
-  "popup.html",
-  "popup.css"
-)
-$requiredLocales = @("de", "en", "es", "fr", "pt_BR", "ru", "uk")
-$requiredIconSizes = @(16, 32, 48, 128)
+$runtimeFiles = @($packageFiles.runtimeFiles | ForEach-Object { [string]$_ })
+$requiredLocales = @($packageFiles.requiredLocales | ForEach-Object { [string]$_ })
+$requiredIconSizes = @($packageFiles.requiredIconSizes | ForEach-Object { [int]$_ })
 
 foreach ($relativePath in $runtimeFiles) {
   if (-not (Test-Path -LiteralPath (Join-Path $projectRoot $relativePath) -PathType Leaf)) {
@@ -205,7 +191,7 @@ foreach ($relativePath in $runtimeFiles) {
 
 Add-Type -AssemblyName System.Drawing
 foreach ($size in $requiredIconSizes) {
-  $iconPath = Join-Path $projectRoot "icons\icon$size.png"
+  $iconPath = Join-Path $projectRoot "icons/icon$size.png"
   $icon = [System.Drawing.Image]::FromFile($iconPath)
   try {
     if ($icon.Width -ne $size -or $icon.Height -ne $size) {
@@ -224,7 +210,7 @@ $actualLocales = @(
 Assert-ExactValues -Actual $actualLocales -Expected $requiredLocales -Label "locale directories"
 
 foreach ($locale in $requiredLocales) {
-  $messagePath = Join-Path $localeRoot "$locale\messages.json"
+  $messagePath = Join-Path $localeRoot "$locale/messages.json"
   if (-not (Test-Path -LiteralPath $messagePath -PathType Leaf)) {
     throw "Required locale file is missing: _locales/$locale/messages.json"
   }
@@ -249,35 +235,27 @@ if (-not $stagingRoot.StartsWith($tempRoot, [System.StringComparison]::OrdinalIg
 New-Item -ItemType Directory -Path $stagingRoot | Out-Null
 
 try {
-  foreach ($relativePath in $runtimeFiles) {
-    $sourcePath = Join-Path $projectRoot $relativePath
-    $destinationPath = Join-Path $stagingRoot $relativePath
-    $destinationDirectory = Split-Path -Parent $destinationPath
-    New-Item -ItemType Directory -Path $destinationDirectory -Force | Out-Null
-    Copy-Item -LiteralPath $sourcePath -Destination $destinationPath
-  }
-
-  foreach ($locale in $requiredLocales) {
-    $relativePath = "_locales\$locale\messages.json"
-    $sourcePath = Join-Path $projectRoot $relativePath
-    $destinationPath = Join-Path $stagingRoot $relativePath
-    New-Item -ItemType Directory -Path (Split-Path -Parent $destinationPath) -Force | Out-Null
-    Copy-Item -LiteralPath $sourcePath -Destination $destinationPath
-  }
-
   if ($targetName -eq "firefox") {
-    $packageManifest = $manifest | ConvertTo-Json -Depth 100 | ConvertFrom-Json
-    $packageManifest | Add-Member `
-      -MemberType NoteProperty `
-      -Name "browser_specific_settings" `
-      -Value $firefoxOverlay.browser_specific_settings
-    $packageManifestJson = $packageManifest | ConvertTo-Json -Depth 100
-    $utf8WithoutBom = [System.Text.UTF8Encoding]::new($false)
-    [System.IO.File]::WriteAllText(
-      (Join-Path $stagingRoot "manifest.json"),
-      $packageManifestJson + [Environment]::NewLine,
-      $utf8WithoutBom
-    )
+    & node (Join-Path $projectRoot "scripts/build-firefox-source.mjs") --output $stagingRoot
+    if ($LASTEXITCODE -ne 0) {
+      throw "The dependency-free Firefox source build failed."
+    }
+  } else {
+    foreach ($relativePath in $runtimeFiles) {
+      $sourcePath = Join-Path $projectRoot $relativePath
+      $destinationPath = Join-Path $stagingRoot $relativePath
+      $destinationDirectory = Split-Path -Parent $destinationPath
+      New-Item -ItemType Directory -Path $destinationDirectory -Force | Out-Null
+      Copy-Item -LiteralPath $sourcePath -Destination $destinationPath
+    }
+
+    foreach ($locale in $requiredLocales) {
+      $relativePath = "_locales/$locale/messages.json"
+      $sourcePath = Join-Path $projectRoot $relativePath
+      $destinationPath = Join-Path $stagingRoot $relativePath
+      New-Item -ItemType Directory -Path (Split-Path -Parent $destinationPath) -Force | Out-Null
+      Copy-Item -LiteralPath $sourcePath -Destination $destinationPath
+    }
   }
 
   New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null

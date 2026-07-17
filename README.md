@@ -111,4 +111,12 @@ Build both store packages from the same source:
 
 The Chromium archive is created at `dist/grok-show-all-chats-1.0.2.zip`. The Firefox archive is created at `dist/grok-show-all-chats-firefox-1.0.2.zip`. The packaging script validates the manifest, runtime file set, permissions, localization coverage, and browser-specific metadata before producing deterministic ZIP files.
 
+Build the separate source archive required for Mozilla review:
+
+```powershell
+.\scripts\package-source.ps1
+```
+
+The source archive is created at `dist/grok-show-all-chats-firefox-1.0.2-source.zip`. It includes readable source code, the version lockfile, build scripts, and [dependency-free reviewer instructions](SOURCE_BUILD.md). Running `node scripts/build-firefox-source.mjs` from the extracted source archive recreates the exact 22 files contained in the submitted Firefox extension.
+
 See [CHROME_WEB_STORE.md](CHROME_WEB_STORE.md) and [FIREFOX_ADD_ONS.md](FIREFOX_ADD_ONS.md) for store-specific listing, privacy, and reviewer guidance.

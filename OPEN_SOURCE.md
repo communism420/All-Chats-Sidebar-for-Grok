@@ -8,7 +8,7 @@ The complete source code is published at:
 
 https://github.com/communism420/All-Chats-Sidebar-for-Grok
 
-The repository contains the extension's JavaScript, CSS, HTML, localizations, master artwork, generated icons, browser-specific manifest overlay, build scripts, privacy policy, and store submission documentation. Chromium and Firefox release ZIP files are reproducibly created from this source with `scripts/package.ps1`.
+The repository contains the extension's JavaScript, CSS, HTML, localizations, master artwork, generated icons, browser-specific manifest overlay, build scripts, privacy policy, and store submission documentation. Chromium and Firefox release ZIP files are reproducibly created from this source with `scripts/package.ps1`. A separate Mozilla reviewer source ZIP is created with `scripts/package-source.ps1`, and its dependency-free Node.js builder reproduces every extracted Firefox package file.
 
 The extension has no closed-source runtime component, developer-operated backend, remotely hosted executable code, analytics library, advertising SDK, telemetry system, or private build dependency.
 

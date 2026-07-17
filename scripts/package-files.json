@@ -1,0 +1,34 @@
+{
+  "runtimeFiles": [
+    "LICENSE",
+    "manifest.json",
+    "page-bridge.js",
+    "webext.js",
+    "icons/icon16.png",
+    "icons/icon32.png",
+    "icons/icon48.png",
+    "icons/icon128.png",
+    "content.js",
+    "content.css",
+    "i18n.js",
+    "settings-bridge.js",
+    "popup.js",
+    "popup.html",
+    "popup.css"
+  ],
+  "requiredLocales": [
+    "de",
+    "en",
+    "es",
+    "fr",
+    "pt_BR",
+    "ru",
+    "uk"
+  ],
+  "requiredIconSizes": [
+    16,
+    32,
+    48,
+    128
+  ]
+}

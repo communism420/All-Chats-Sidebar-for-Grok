@@ -36,7 +36,27 @@ Run:
 .\scripts\package.ps1 -Target Firefox
 ```
 
-Upload `dist/grok-show-all-chats-firefox-1.0.2.zip` to AMO. Its `manifest.json` is generated at build time from the shared manifest and the reviewed Firefox overlay. The archive contains readable, unminified source code and no runtime dependencies.
+Upload `dist/grok-show-all-chats-firefox-1.0.2.zip` to AMO. Its `manifest.json` is generated at build time from the shared manifest and the reviewed Firefox overlay. The archive contains readable, unminified runtime code and no runtime dependencies.
+
+## Source Code Submission
+
+Select **Yes** when AMO asks whether source code must be submitted. The build generates the Firefox `manifest.json` from `manifest.json` and `manifest.firefox.json`, so Mozilla's generated-file rule applies even though the runtime JavaScript is not bundled or minified.
+
+Create the matching reviewer source archive:
+
+```powershell
+.\scripts\package-source.ps1
+```
+
+Upload `dist/grok-show-all-chats-firefox-1.0.2-source.zip` in AMO's source-code field. Do not upload the release ZIP a second time.
+
+The source archive contains `SOURCE_BUILD.md` and a dependency-free Node.js builder. A reviewer can extract the archive and run:
+
+```bash
+node scripts/build-firefox-source.mjs
+```
+
+The rebuilt extension is written to `build/firefox/` and must match all 22 extracted files from the submitted extension without differences. Node.js 20 or newer is sufficient; no npm installation or network access is required for this build.
 
 ## Suggested Listing
 
@@ -117,6 +137,7 @@ Because the main feature requires authentication, provide working credentials fo
 - Verify that the public privacy-policy URL works without signing in.
 - Confirm that the listing describes Firefox Desktop only and requires version 142 or newer.
 - Test the exact ZIP submitted to AMO, not a different development directory.
+- Upload the matching `grok-show-all-chats-firefox-1.0.2-source.zip` source archive and verify that `SOURCE_BUILD.md` is at its root.
 - Confirm that `manifest.json` is at the archive root and contains the stable Add-on ID.
 - Upload only the ZIP produced by `scripts/package.ps1 -Target Firefox`.
 - Keep version `1.0.2` unless the project owner explicitly authorizes a version change.

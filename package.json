@@ -5,6 +5,8 @@
   "description": "Development tools for the cross-browser All Chats Sidebar for Grok extension.",
   "license": "MIT",
   "scripts": {
+    "build:firefox-source": "node scripts/build-firefox-source.mjs",
+    "package:source": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-source.ps1",
     "test": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1",
     "test:firefox": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-firefox.ps1"
   },

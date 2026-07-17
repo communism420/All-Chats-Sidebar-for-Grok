@@ -6,6 +6,7 @@ Changes since version 1.0.1:
 - Added a dedicated Mozilla Add-ons package with a stable Firefox Add-on ID and current data-handling declarations.
 - Added a cross-browser WebExtension API adapter while preserving Chromium profile synchronization for the language setting.
 - Added separate, reproducible Chromium and Firefox release archives with browser-specific manifest validation.
+- Added a matching Mozilla reviewer source archive and dependency-free Node.js rebuild instructions.
 - Added official Firefox linting and real-browser regression tests alongside the existing Chromium checks.
 - Updated the public website, privacy disclosures, installation instructions, and store-submission documentation for both browser families.
 - Improved release-script compatibility with Windows PowerShell 5.1.
